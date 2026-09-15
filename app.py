@@ -232,7 +232,6 @@ else:
             y_series = temp_df['Target_SameDay']
         else:
             future_ret = (temp_df['Close'].shift(-days) - temp_df['Close']) / temp_df['Close']
-            # Dynamic profit threshold scaled to horizon square-root time
             thresh = 0.005 * np.sqrt(days)
             y_series = np.where(future_ret > thresh, 1, 0)
         
@@ -358,11 +357,12 @@ else:
         help="Smart Money Flow: Evaluates institutional accumulation/distribution via OBV slope dynamics."
     )
 
+    # SIMPLIFIED BREAKOUT METRIC
     q3.metric(
-        label="Breakout Stage", 
-        value="COILING / SQUEEZE" if squeeze_val else "ACTIVE MOVE", 
-        delta="Consolidation" if squeeze_val else "Trending Now",
-        help="Volatility Compression: Tracks Bollinger Band contraction within Keltner Channels."
+        label="Price Speed / Stage", 
+        value="RESTING / PAUSED" if squeeze_val else "MOVING FAST", 
+        delta="Preparing to Jump" if squeeze_val else "Price Expanding",
+        help="tells you if the price is sitting still (resting) or currently making a fast move up/down."
     )
 
     q4.metric(
@@ -375,7 +375,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. MULTI-HORIZON AI UPWARD ODDS FORECAST (FULL VISIBILITY)
+    # 8. MULTI-HORIZON AI UPWARD ODDS FORECAST
     # -------------------------------------------------------------
     st.subheader("🤖 AI Upward Odds Across Time Horizons")
     
