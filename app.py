@@ -13,7 +13,7 @@ from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 # -------------------------------------------------------------
 # 1. PAGE CONFIGURATION & GROWW-INSPIRED THEME
 # -------------------------------------------------------------
-st.set_page_config(page_title="SimpleStock - Beginner Trading Assistant", layout="wide")
+st.set_page_config(page_title="SimpleStock - Beginner Trading Terminal", layout="wide")
 
 st.markdown("""
 <style>
@@ -94,7 +94,7 @@ suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
 ticker_symbol = f"{sanitized_symbol}{suffix}" if not sanitized_symbol.endswith((".NS", ".BO")) else sanitized_symbol
 
 # -------------------------------------------------------------
-# 3. DATA & AI ENGINE
+# 3. DATA & MULTI-HORIZON AI ENGINE
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -111,22 +111,43 @@ def fetch_stock_master(symbol):
     return df, info, financials, yearly_financials, news
 
 @st.cache_resource
-def train_model(X, y):
+def train_ensemble_model(X, y):
     if len(y.dropna()) < 60:
         return None, 50.0
+
     tscv = TimeSeriesSplit(n_splits=3)
-    xgb = XGBClassifier(n_estimators=100, learning_rate=0.02, max_depth=3, random_state=42, n_jobs=-1)
-    rf = RandomForestClassifier(n_estimators=100, max_depth=4, random_state=42, n_jobs=-1)
-    
+    precisions = []
+
+    xgb = XGBClassifier(
+        n_estimators=100, learning_rate=0.02, max_depth=3,
+        subsample=0.8, colsample_bytree=0.8, random_state=42, n_jobs=-1
+    )
+    rf = RandomForestClassifier(
+        n_estimators=100, max_depth=4, min_samples_split=5,
+        random_state=42, n_jobs=-1
+    )
+
     for train_idx, test_idx in tscv.split(X):
         X_tr, X_te = X.iloc[train_idx], X.iloc[test_idx]
         y_tr, y_te = y.iloc[train_idx], y.iloc[test_idx]
+        
         xgb.fit(X_tr, y_tr)
         rf.fit(X_tr, y_tr)
         
+        p1 = xgb.predict_proba(X_te)[:, 1]
+        p2 = rf.predict_proba(X_te)[:, 1]
+        blend_p = (p1 + p2) / 2.0
+        preds = (blend_p >= 0.52).astype(int)
+        
+        true_pos = np.sum((preds == 1) & (y_te == 1))
+        pred_pos = np.sum(preds == 1)
+        if pred_pos > 0:
+            precisions.append(true_pos / pred_pos)
+
     xgb.fit(X, y)
     rf.fit(X, y)
-    return (xgb, rf), 65.0
+    avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
+    return (xgb, rf), avg_precision
 
 df, info, financials, yearly_financials, news_items = fetch_stock_master(ticker_symbol)
 
@@ -137,7 +158,7 @@ else:
     sector = info.get('sector', 'General')
     summary = info.get('longBusinessSummary', 'No description available for this company.')
 
-    # Technical calculations
+    # Quantitative Feature Engineering
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
     df['SMA_200'] = SMAIndicator(df['Close'], window=200).sma_indicator()
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
@@ -150,20 +171,63 @@ else:
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
-    df['Target'] = np.where(df['Close'].shift(-5) > df['Close'], 1, 0)
-    feature_cols = ['Close', 'Volume', 'SMA_50', 'RSI', 'Z_Score']
-    
-    clean_df = df.dropna(subset=feature_cols + ['Target']).copy()
-    models, model_confidence = train_model(clean_df[feature_cols], clean_df['Target'])
-    
-    if models:
-        latest_x = df[feature_cols].tail(1).fillna(0)
-        p1 = models[0].predict_proba(latest_x)[0][1]
-        p2 = models[1].predict_proba(latest_x)[0][1]
-        ai_score = ((p1 + p2) / 2.0) * 100
-    else:
-        ai_score = 50.0
+    df['Ret_1D'] = np.log(df['Close'] / df['Close'].shift(1))
+    df['Ret_5D'] = np.log(df['Close'] / df['Close'].shift(5))
+    df['Ret_20D'] = np.log(df['Close'] / df['Close'].shift(20))
+    df['HL_Spread'] = (df['High'] - df['Low']) / df['Close']
+    df['Vol_ZScore'] = (df['Volume'] - df['Volume'].rolling(20).mean()) / df['Volume'].rolling(20).std()
 
+    df['Target_SameDay'] = np.where(df['Close'] > df['Open'], 1, 0)
+
+    horizons = {
+        "Daily / Same Day": 0,
+        "Weekly (5D)": 5,
+        "10 Days": 10,
+        "15 Days": 15,
+        "1 Month (21D)": 21,
+        "2 Months (42D)": 42,
+        "3 Months (63D)": 63
+    }
+
+    feature_cols = [
+        'Close', 'Volume', 'SMA_50', 'RSI', 'Z_Score', 
+        'OBV_Slope', 'Ret_1D', 'Ret_5D', 'Ret_20D', 'HL_Spread'
+    ]
+
+    predictions_summary = []
+    
+    for label, days in horizons.items():
+        temp_df = df.copy()
+        if days == 0:
+            y_series = temp_df['Target_SameDay']
+        else:
+            future_ret = (temp_df['Close'].shift(-days) - temp_df['Close']) / temp_df['Close']
+            thresh = 0.005 * np.sqrt(days)
+            y_series = np.where(future_ret > thresh, 1, 0)
+        
+        temp_df['Target'] = y_series
+        clean_temp = temp_df.dropna(subset=feature_cols + ['Target'])
+        
+        X_h = clean_temp[feature_cols]
+        y_h = clean_temp['Target']
+        
+        models, prec = train_ensemble_model(X_h, y_h)
+        if models is not None:
+            latest_x = df[feature_cols].tail(1).fillna(0)
+            p1 = models[0].predict_proba(latest_x)[0][1]
+            p2 = models[1].predict_proba(latest_x)[0][1]
+            prob = ((p1 + p2) / 2.0) * 100
+        else:
+            prob = 50.0
+            prec = 50.0
+            
+        predictions_summary.append({
+            "Horizon": label,
+            "Upward Odds": prob,
+            "Model Precision": prec
+        })
+
+    clean_df = df.dropna(subset=feature_cols).copy()
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     pct_change = ((curr_price - prev_close) / prev_close) * 100
@@ -173,10 +237,12 @@ else:
     day_open = float(df['Open'].iloc[-1])
     day_close = float(df['Close'].iloc[-1])
 
-    # Circuit limit forecasts (Standard exchange assumption: 10% or 20%)
+    # Circuit limit forecasts
     circuit_pct = 0.10 if curr_price > 100 else 0.20
     upper_circuit = prev_close * (1 + circuit_pct)
     lower_circuit = prev_close * (1 - circuit_pct)
+
+    prob_up_next_day = predictions_summary[1]["Upward Odds"]
 
     # -------------------------------------------------------------
     # 4. PLAIN-ENGLISH RECOMMENDATION ENGINE
@@ -184,7 +250,7 @@ else:
     score = 0
     if curr_price > df['SMA_200'].iloc[-1]: score += 2
     if obv_val > 0: score += 2
-    if ai_score >= 53: score += 2
+    if prob_up_next_day >= 53: score += 2
     if z_score_val < 1.5: score += 1
 
     if score >= 5:
@@ -237,7 +303,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 6. STOCK NEWS & CATALYSTS (LAST 1 MONTH & UPCOMING)
+    # 6. STOCK NEWS & CATALYSTS
     # -------------------------------------------------------------
     st.subheader("📰 Recent News & Catalysts (Past Month / Outlook)")
     if news_items:
@@ -263,13 +329,33 @@ else:
     crowd_status = "Smart Money is Buying" if obv_val > 0 else "People Are Selling Out"
     m2.metric("What is the crowd doing?", crowd_status, "Tracks institutional volume flow")
 
-    ai_readable = f"{ai_score:.0f}% Positive Outlook"
+    ai_readable = f"{prob_up_next_day:.0f}% Positive Outlook"
     m3.metric("AI Confidence Score", ai_readable, "Predicted chance of going up soon")
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. EASY TABS: CHARTS, FINANCIAL PERFORMANCE, & GUIDE
+    # 8. MULTI-HORIZON PREDICTION BREAKDOWN
+    # -------------------------------------------------------------
+    st.subheader("🤖 AI Horizon Predictions (Daily to 3 Months)")
+    st.write("Using ensemble machine learning formulas to calculate directional probability and model confidence across multiple time windows:")
+    
+    cols = st.columns(4)
+    for idx, item in enumerate(predictions_summary):
+        col_idx = idx % 4
+        with cols[col_idx]:
+            prob_val = item['Upward Odds']
+            signal = "🟢 Bullish" if prob_val >= 53.0 else ("🔴 Bearish" if prob_val <= 47.0 else "🟡 Neutral")
+            st.metric(
+                label=item["Horizon"],
+                value=f"{prob_val:.1f}% Up",
+                delta=f"{signal} (Acc: {item['Model Precision']:.1f}%)"
+            )
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 9. EASY TABS: CHARTS, FINANCIALS & GUIDE
     # -------------------------------------------------------------
     tab1, tab2, tab3, tab4 = st.tabs(["📈 Price Trend Chart", "📈 Financial Performance & Growth", "📜 Quarterly Reports", "🏢 Company Profile & Guide"])
 
@@ -291,7 +377,6 @@ else:
 
     with tab2:
         st.markdown("### 📊 Revenue, Profit & Growth Comparison")
-        st.write("Reviewing yearly and multi-period performance metrics to evaluate overall business health:")
         if isinstance(yearly_financials, pd.DataFrame) and not yearly_financials.empty:
             st.dataframe(yearly_financials, use_container_width=True)
         else:
