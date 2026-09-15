@@ -11,7 +11,7 @@ from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 # -------------------------------------------------------------
 # PAGE CONFIGURATION & STYLING
 # -------------------------------------------------------------
-st.set_page_config(page_title="QuantEdge 360° Decision Engine", layout="wide")
+st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
@@ -39,9 +39,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🛡️ QuantEdge: 360° Institutional Decision Engine")
-st.caption("Combining Fundamentals, Microstructure, Smart Money Flow & Multi-Timeframe Scoring Matrix")
-
 # -------------------------------------------------------------
 # SIDEBAR CONTROLS & INPUT SANITIZATION
 # -------------------------------------------------------------
@@ -63,7 +60,6 @@ capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=5000
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
     ticker = yf.Ticker(symbol)
-    # Fetch exact 2-Year lookback period (~500 trading days)
     df = ticker.history(period="2y", interval="1d")
     
     info = ticker.info if hasattr(ticker, 'info') else {}
@@ -78,7 +74,6 @@ def train_xgboost(clean_data):
     X = clean_data[features]
     y = clean_data['Target_Direction']
 
-    # 80% Train (~400 days) / 20% Test (~100 days)
     split = int(len(clean_data) * 0.8)
     X_train, y_train = X.iloc[:split], y.iloc[:split]
     X_test, y_test = X.iloc[split:], y.iloc[split:]
@@ -109,21 +104,21 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
-    # 1. Z-Score Mean Reversion (50-Day Rolling Window)
+    # Z-Score Mean Reversion
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
 
-    # 2. Institutional Money Flow (10-Day OBV Slope Window)
+    # Institutional Money Flow
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
-    # 3. Volatility Squeeze Engine (20-Day Window)
+    # Volatility Squeeze Engine
     bb = BollingerBands(df['Close'], window=20, window_dev=2)
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Machine Learning Target Definition
+    # Machine Learning Target
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
@@ -158,7 +153,6 @@ else:
     score_breakdown = []
     total_bullish_score = 0
 
-    # Criteria 1: 200 DMA Macro Trend
     c1_passed = curr_price > sma_200_val
     if c1_passed: total_bullish_score += 2
     score_breakdown.append({
@@ -169,7 +163,6 @@ else:
         "Status": "✅ PASSED" if c1_passed else "❌ FAILED"
     })
 
-    # Criteria 2: Smart Money Accumulation (OBV Slope)
     c2_passed = obv_slope_val > 0
     if c2_passed: total_bullish_score += 2
     score_breakdown.append({
@@ -180,7 +173,6 @@ else:
         "Status": "✅ PASSED" if c2_passed else "❌ FAILED"
     })
 
-    # Criteria 3: Machine Learning Edge (XGBoost)
     c3_passed = prob_up >= 55.0
     if c3_passed: total_bullish_score += 2
     score_breakdown.append({
@@ -191,7 +183,6 @@ else:
         "Status": "✅ PASSED" if c3_passed else "❌ FAILED"
     })
 
-    # Criteria 4: Momentum Range (RSI)
     c4_passed = (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0)
     if c4_passed: total_bullish_score += 1
     score_breakdown.append({
@@ -202,7 +193,6 @@ else:
         "Status": "✅ PASSED" if c4_passed else "❌ FAILED"
     })
 
-    # Criteria 5: Fundamental Valuation
     c5_passed = pe_ratio is not None and pe_ratio < 25.0
     if c5_passed: total_bullish_score += 1
     score_breakdown.append({
@@ -213,7 +203,6 @@ else:
         "Status": "✅ PASSED" if c5_passed else "❌ FAILED"
     })
 
-    # System Decision Mapping
     if total_bullish_score >= 6 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (STRONG BUY)"
         banner_color = "#00C853"
@@ -232,7 +221,7 @@ else:
         action_summary = "Conflicting signals between volume distribution and technical structure. Capital protection advised."
 
     # -------------------------------------------------------------
-    # 1. LIVE DECISION BANNER & TOP SNAPSHOT
+    # 1. LIVE DECISION BANNER & TOP SNAPSHOT (STARTING DIRECTLY)
     # -------------------------------------------------------------
     st.markdown(f"## **{company_name}** (`{ticker_symbol}`)")
     st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
@@ -256,7 +245,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 2. DIAGNOSTICS & VERDICT AUDIT BREAKDOWN (NEW FEATURE)
+    # 2. DIAGNOSTICS & VERDICT AUDIT BREAKDOWN
     # -------------------------------------------------------------
     st.subheader("🔍 Verdict Audit: Technical & Parameter Breakdown")
     st.caption(f"Score Achieved: **{total_bullish_score} / 8 Points** | Evaluated Dataset: **{len(df)} Days (2 Years)**")
@@ -264,7 +253,6 @@ else:
     audit_df = pd.DataFrame(score_breakdown)
     st.table(audit_df)
 
-    # Timeframe Diagnostics Card
     d1, d2, d3, d4 = st.columns(4)
     d1.metric("Dataset Lookback", f"{len(df)} Bars", "Daily Candles (2Y)")
     d2.metric("Train/Test Split", f"{int(len(clean_df)*0.8)} / {int(len(clean_df)*0.2)} Bars", "80% Train | 20% Test")
@@ -336,7 +324,6 @@ else:
     with tab1:
         hist_df = df.tail(120)
         
-        # Calculate Point of Control (POC) over 90 Days
         price_bins = pd.cut(hist_df['Close'], bins=15)
         volume_profile = hist_df.groupby(price_bins, observed=False)['Volume'].sum()
         poc_bin = volume_profile.idxmax()
