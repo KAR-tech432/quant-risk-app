@@ -9,30 +9,54 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & STYLING (REMOVING TOP PADDING)
+# PAGE CONFIGURATION & COMPACT STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Reduce top whitespace aggressively */
+    /* Remove top whitespace */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
     }
     .metric-card {
         background-color: #1E222D;
-        padding: 12px;
-        border-radius: 8px;
+        padding: 10px;
+        border-radius: 6px;
         border: 1px solid #2A2E39;
     }
+    /* Compact System Verdict Banner */
     .decision-banner {
-        padding: 15px;
-        border-radius: 8px;
+        padding: 8px 12px;
+        border-radius: 6px;
         text-align: center;
+        font-size: 16px;
+        font-weight: 600;
+        margin-top: 5px;
+        margin-bottom: 12px;
+        line-height: 1.3;
+    }
+    .decision-subtext {
+        font-size: 12px;
+        font-weight: 400;
+        opacity: 0.95;
+        display: block;
+        margin-top: 2px;
+    }
+    /* Responsive Stock Title Header */
+    .stock-header {
         font-size: 22px;
-        font-weight: bold;
-        margin-bottom: 15px;
+        font-weight: 700;
+        color: #FFFFFF;
+        white-space: normal;
+        word-wrap: break-word;
+        line-height: 1.2;
+    }
+    .stock-ticker {
+        font-size: 14px;
+        color: #90A4AE;
+        font-weight: 400;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -116,7 +140,7 @@ else:
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Target Setup
+    # Machine Learning Target Setup
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
@@ -173,20 +197,26 @@ else:
         action_summary = "Conflicting signals between volume distribution and technical structure. Capital protection advised."
 
     # -------------------------------------------------------------
-    # 1. TOP SECTION: LIVE SNAPSHOT & DECISION (AT THE VERY TOP)
+    # 1. TOP SECTION: FULL STOCK NAME & COMPACT VERDICT BANNER
     # -------------------------------------------------------------
-    st.markdown(f"## **{company_name}** (`{ticker_symbol}`)")
-    st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
+    st.markdown(f"""
+    <div class="stock-header">
+        {company_name} <span class="stock-ticker">({ticker_symbol})</span>
+    </div>
+    <div style="font-size: 12px; color: #78909C; margin-bottom: 6px;">
+        Sector: {sector} | Industry: {industry}
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="decision-banner" style="background-color: {banner_color}; color: white;">
-        SYSTEM VERDICT: {action_decision}<br>
-        <span style="font-size: 13px; font-weight: normal;">{action_summary}</span>
+        SYSTEM VERDICT: {action_decision}
+        <span class="decision-subtext">{action_summary}</span>
     </div>
     """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 2. MOVED TO TOP: MICROSTRUCTURE & SMART MONEY FLOW
+    # 2. MICROSTRUCTURE & SMART MONEY FLOW
     # -------------------------------------------------------------
     st.subheader("⚡ Microstructure & Institutional Flow")
     q1, q2, q3, q4 = st.columns(4)
@@ -194,7 +224,7 @@ else:
     q1.metric("Price Z-Score", f"{z_score_val:+.2f} σ", 
               "Oversold (Extreme Discount)" if z_score_val < -2 else ("Overbought" if z_score_val > 2 else "Fair Value"))
     q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Vol Delta")
-    q3.metric("Volatility Squeeze", "FIRE READY (Consolidation)" if squeeze_val else "EXPANDED (Active Trend)")
+    q3.metric("Volatility Squeeze", "FIRE READY" if squeeze_val else "EXPANDED", "Consolidation" if squeeze_val else "Active Trend")
     q4.metric("XGBoost Predictive Edge", f"{prob_up:.1f}% Bullish", f"Model Acc: {accuracy:.1f}%")
 
     st.markdown("---")
@@ -226,7 +256,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 5. INTERACTIVE CHARTS & STATEMENTS
+    # 5. CHARTS & STATEMENTS
     # -------------------------------------------------------------
     tab1, tab2 = st.tabs(["📊 Price Action & Point of Control (POC)", "📜 Quarterly Financials"])
 
@@ -250,7 +280,7 @@ else:
         fig.add_hline(y=stop_loss, line_dash="dash", line_color="#FF5252", annotation_text=f"Stop-Loss (₹{stop_loss:.2f})")
         fig.add_hline(y=take_profit, line_dash="dash", line_color="#00E676", annotation_text=f"Target (₹{take_profit:.2f})")
 
-        fig.update_layout(template="plotly_dark", height=500, xaxis_title="Date", yaxis_title="Price (₹)")
+        fig.update_layout(template="plotly_dark", height=480, xaxis_title="Date", yaxis_title="Price (₹)")
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
