@@ -9,38 +9,81 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & MOBILE STYLING
+# PAGE CONFIGURATION & ADVANCED TERMINAL CSS
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Compact Margins for Mobile & Desktop */
+    /* Reset padding to prevent header cutoff */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 2rem !important;
         padding-bottom: 0rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
     
-    /* Compact Mobile-Friendly Verdict Banner */
-    .decision-banner {
-        padding: 6px 10px;
-        border-radius: 6px;
-        text-align: center;
-        font-size: 13px;
-        font-weight: 700;
-        margin-top: 6px;
+    /* Advanced Side-by-Side Header Card */
+    .terminal-header-card {
+        background: linear-gradient(135deg, #1E222D 0%, #131722 100%);
+        border: 1px solid #2A2E39;
+        border-radius: 8px;
+        padding: 12px 16px;
         margin-bottom: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    
+    .stock-title-main {
+        font-size: 16px;
+        font-weight: 700;
+        color: #FFFFFF;
+        line-height: 1.3;
+        margin: 0;
+        word-break: break-word;
+    }
+    
+    .stock-symbol-badge {
+        color: #00E5FF;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .stock-meta-info {
+        font-size: 11px;
+        color: #78909C;
+        margin-top: 3px;
+    }
+
+    /* Side-by-Side Compact Verdict Badge */
+    .compact-verdict-box {
+        border-radius: 6px;
+        padding: 8px 12px;
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+    }
+    
+    .verdict-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    
+    .verdict-desc {
+        font-size: 10px;
+        opacity: 0.9;
+        margin-top: 2px;
         line-height: 1.2;
     }
-    
-    .decision-subtext {
-        font-size: 11px;
-        font-weight: 400;
-        opacity: 0.95;
-        display: block;
-        margin-top: 3px;
+
+    @media (max-width: 640px) {
+        .compact-verdict-box {
+            text-align: left;
+            margin-top: 6px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -99,7 +142,6 @@ df, info, financials = fetch_stock_master(ticker_symbol)
 if df is None or df.empty:
     st.error(f"Could not load market data for **{ticker_symbol}**. Verify symbol or exchange configuration.")
 else:
-    # --- GUARANTEED STOCK NAME FETCHING ---
     company_name = info.get('longName') or info.get('shortName') or ticker_symbol
     sector = info.get('sector', 'N/A')
     industry = info.get('industry', 'N/A')
@@ -168,34 +210,60 @@ else:
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
     if total_bullish_score >= 6 and z_score_val < 1.8:
-        action_decision = "ACCUMULATE (STRONG BUY)"
-        banner_color = "#00C853"
+        action_decision = "ACCUMULATE (BUY)"
+        banner_bg = "rgba(0, 200, 83, 0.15)"
+        banner_border = "#00C853"
+        banner_color = "#00E676"
         action_summary = "Technical trend, money flow, and model probability are aligned."
     elif total_bullish_score < 4 or z_score_val > 2.2:
-        action_decision = "SHORT / REDUCE (BEARISH)"
-        banner_color = "#FF1744"
+        action_decision = "SHORT / REDUCE"
+        banner_bg = "rgba(255, 23, 68, 0.15)"
+        banner_border = "#FF1744"
+        banner_color = "#FF5252"
         action_summary = "Distribution pressure present or price expansion is overextended."
     elif total_bullish_score >= 4:
-        action_decision = "HOLD (NEUTRAL BIASED)"
-        banner_color = "#FF9100"
+        action_decision = "HOLD (NEUTRAL)"
+        banner_bg = "rgba(255, 145, 0, 0.15)"
+        banner_border = "#FF9100"
+        banner_color = "#FFAB40"
         action_summary = "Macro trend intact; momentum suggests holding existing positions."
     else:
-        action_decision = "EXIT / AVOID (NO EDGE)"
-        banner_color = "#D500F9"
+        action_decision = "EXIT / AVOID"
+        banner_bg = "rgba(213, 0, 249, 0.15)"
+        banner_border = "#D500F9"
+        banner_color = "#E040FB"
         action_summary = "Conflicting signals between volume and technical structure."
 
     # -------------------------------------------------------------
-    # 1. NATIVE STREAMLIT HEADER (ALWAYS VISIBLE & MOBILE RESPONSIVE)
+    # 1. SIDE-BY-SIDE ADVANCED TERMINAL HEADER
     # -------------------------------------------------------------
-    st.subheader(f"📈 {company_name} ({ticker_symbol})")
-    st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
+    head_col1, head_col2 = st.columns([1.6, 1])
 
-    st.markdown(f"""
-    <div class="decision-banner" style="background-color: {banner_color}; color: white;">
-        VERDICT: {action_decision}
-        <span class="decision-subtext">{action_summary}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    with head_col1:
+        st.markdown(f"""
+        <div class="terminal-header-card">
+            <div class="stock-title-main">
+                {company_name} <span class="stock-symbol-badge">({ticker_symbol})</span>
+            </div>
+            <div class="stock-meta-info">
+                Sector: {sector} | Industry: {industry}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with head_col2:
+        st.markdown(f"""
+        <div class="terminal-header-card">
+            <div class="compact-verdict-box" style="background-color: {banner_bg}; border: 1px solid {banner_border}; border-radius: 6px;">
+                <div class="verdict-title" style="color: {banner_color};">
+                    VERDICT: {action_decision}
+                </div>
+                <div class="verdict-desc" style="color: #FFFFFF;">
+                    {action_summary}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
     # 2. MICROSTRUCTURE & INSTITUTIONAL FLOW
