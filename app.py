@@ -11,127 +11,117 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# 1. PAGE CONFIGURATION & GROWW-INSPIRED THEME LAYER
+# 1. PAGE CONFIGURATION & AUTHENTIC GROWW UI STYLING
 # -------------------------------------------------------------
-st.set_page_config(page_title="Groww Quant Engine", layout="wide")
+st.set_page_config(page_title="Groww Trading Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Groww Dark Theme Styling */
+    /* Groww Dark Theme Global Styles */
     .stApp {
-        background-color: #0E1116;
-        color: #F0F2F5;
+        background-color: #0f141e;
+        color: #f0f4f8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .block-container {
         padding-top: 1.0rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 1.0rem !important;
-        padding-right: 1.0rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1.2rem !important;
+        padding-right: 1.2rem !important;
     }
+    /* Groww Card Component */
     .groww-card {
-        background-color: #1F242D;
-        border: 1px solid #2A313C;
+        background-color: #1c212b;
+        border: 1px solid #28303d;
         border-radius: 12px;
         padding: 16px 20px;
-        min-height: 75px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
-    .stock-title-main {
-        font-size: 18px;
+    .groww-header-title {
+        font-size: 20px;
         font-weight: 700;
-        color: #FFFFFF !important;
-        line-height: 1.2;
+        color: #ffffff !important;
         margin: 0;
     }
-    .stock-symbol-badge {
-        color: #00D09C !important;
-        font-weight: 600;
-        font-size: 14px;
-    }
-    .stock-meta-info {
+    .groww-symbol-tag {
+        background-color: #28303d;
+        color: #00d09c;
+        padding: 2px 8px;
+        border-radius: 6px;
         font-size: 12px;
-        color: #9AA0A6 !important;
-        font-weight: 400;
-        margin-top: 4px;
+        font-weight: 600;
     }
-    .verdict-box-solid {
-        border-radius: 10px;
-        padding: 12px 16px;
-        text-align: right;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 100%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    .groww-price-lg {
+        font-size: 28px;
+        font-weight: 700;
+        color: #ffffff;
     }
-    .verdict-title {
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        color: #FFFFFF !important;
-    }
-    .verdict-desc {
-        font-size: 11px;
-        color: #FFFFFF !important;
-        font-weight: 400;
-        opacity: 0.9;
-        margin-top: 2px;
-    }
-    /* Metric Card Custom Tweaks */
+    /* Metric Cards */
     div[data-testid="stMetric"] {
-        background-color: #1F242D;
-        border: 1px solid #2A313C;
-        padding: 12px 16px;
-        border-radius: 10px;
+        background-color: #1c212b;
+        border: 1px solid #28303d;
+        padding: 14px 18px;
+        border-radius: 12px;
     }
     div[data-testid="stMetric"] label {
         font-size: 12px !important;
-        color: #9AA0A6 !important;
+        color: #8c96a5 !important;
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         font-size: 18px !important;
-        color: #FFFFFF !important;
+        color: #ffffff !important;
     }
-    div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
-        font-size: 11px !important;
-    }
-    /* Tab Styling */
+    /* Tabs Styling (Groww Style) */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 12px;
+        background-color: transparent;
+        border-bottom: 1px solid #28303d;
+        padding-bottom: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #1F242D;
-        border-radius: 8px 8px 0px 0px;
-        color: #9AA0A6;
-        padding: 10px 16px;
+        background-color: #1c212b;
+        border: 1px solid #28303d;
+        border-radius: 8px;
+        color: #8c96a5;
+        padding: 8px 16px;
         font-weight: 600;
+        font-size: 13px;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #00D09C !important;
-        color: #0E1116 !important;
+        background-color: #00d09c !important;
+        color: #0f141e !important;
+        border-color: #00d09c !important;
+    }
+    /* Buttons */
+    .stButton button {
+        background-color: #00d09c;
+        color: #0f141e;
+        font-weight: 700;
+        border-radius: 8px;
+        border: none;
+        padding: 10px 20px;
+    }
+    .stButton button:hover {
+        background-color: #00b386;
+        color: #ffffff;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 2. GROWW-STYLE TOP NAV & SEARCH BAR
+# 2. GROWW TOP NAVIGATION & SEARCH BAR
 # -------------------------------------------------------------
-top_c1, top_c2, top_c3 = st.columns([1.0, 1.0, 3.0])
-with top_c1:
+nav_c1, nav_c2, nav_c3 = st.columns([1.2, 1.2, 3.6])
+with nav_c1:
     exchange = st.selectbox("Exchange:", ["NSE (.NS)", "BSE (.BO)"])
-with top_c2:
+with nav_c2:
     raw_input = st.text_input("Search Stock:", "JPPOWER").strip().upper()
-
-with top_c3:
-    st.markdown("<div style='font-size: 11px; color: #9AA0A6; margin-bottom: 2px;'>TRENDING SECTORS TODAY</div>", unsafe_allow_html=True)
+with nav_c3:
+    st.markdown("<div style='font-size: 11px; color: #8c96a5; margin-bottom: 2px; font-weight: 600;'>TRENDING SECTORS TODAY</div>", unsafe_allow_html=True)
     st.markdown(
-        "<span style='background-color: #1F242D; border: 1px solid #2A313C; padding: 6px 12px; border-radius: 20px; color: #00D09C; font-size: 11px; font-weight: 600;'>"
-        "⚡ IT (+1.4%) &nbsp;🔥 Metal (+2.1%) &nbsp;💊 Pharma (+0.9%) &nbsp;🏦 Bank (+0.4%)"
-        "</span>", 
+        "<div style='background-color: #1c212b; border: 1px solid #28303d; padding: 6px 14px; border-radius: 20px; color: #00d09c; font-size: 11px; font-weight: 600; display: inline-block;'>"
+        "⚡ IT (+1.4%) &nbsp;&nbsp; 🔥 Metal (+2.1%) &nbsp;&nbsp; 💊 Pharma (+0.9%) &nbsp;&nbsp; 🏦 Bank (+0.4%)"
+        "</div>", 
         unsafe_allow_html=True
     )
 
@@ -144,7 +134,7 @@ atr_multiplier = 1.5
 capital_allocated = 100000.0
 
 # -------------------------------------------------------------
-# 3. ADVANCED ENSEMBLE AI MODEL ENGINE & DATA FETCHING
+# 3. AI MODEL ENGINE & DATA FETCHING
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -173,7 +163,6 @@ def train_ensemble_model(X, y):
         subsample=0.8, colsample_bytree=0.8, reg_alpha=0.5,
         reg_lambda=1.5, random_state=42, n_jobs=-1
     )
-
     rf = RandomForestClassifier(
         n_estimators=100, max_depth=4, min_samples_split=5,
         random_state=42, n_jobs=-1
@@ -316,7 +305,7 @@ else:
     lower_circuit = prev_close * (1 - circuit_pct)
 
     # -------------------------------------------------------------
-    # 5. KELLY CRITERION & RISK ENGINE
+    # 5. RISK ENGINE & KELLY CRITERION
     # -------------------------------------------------------------
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
@@ -332,7 +321,7 @@ else:
     max_shares = int(suggested_risk_amount / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # 6. DYNAMIC VERDICT & HEADER CARD
+    # 6. GROWW STOCK HEADER & EXPERT VERDICT
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
@@ -343,19 +332,19 @@ else:
 
     if pct_change > 0.0 and total_bullish_score >= 5 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
-        banner_bg = "#00D09C"
+        banner_bg = "#00d09c"
         action_summary = f"Up {pct_change:+.2f}% today with strong institutional edge."
     elif pct_change < 0.0 or total_bullish_score < 4 or z_score_val > 2.0:
         action_decision = "SHORT / REDUCE"
-        banner_bg = "#EB5B3C"
+        banner_bg = "#eb5b3c"
         action_summary = f"Down {pct_change:+.2f}% today under selling pressure or overextension."
     elif pct_change == 0.0 or total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
-        banner_bg = "#FFA726"
+        banner_bg = "#ffa726"
         action_summary = "Trading flat; overall market momentum remains balanced."
     else:
         action_decision = "EXIT / AVOID"
-        banner_bg = "#AB47BC"
+        banner_bg = "#ab47bc"
         action_summary = "High volatility active; await trend confirmation."
 
     head_col1, head_col2 = st.columns([1.6, 1])
@@ -363,10 +352,11 @@ else:
     with head_col1:
         st.markdown(f"""
         <div class="groww-card">
-            <div class="stock-title-main">
-                {company_name} <span class="stock-symbol-badge">({ticker_symbol})</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="groww-header-title">{company_name}</div>
+                <div class="groww-symbol-tag">{ticker_symbol}</div>
             </div>
-            <div class="stock-meta-info">
+            <div style="font-size: 12px; color: #8c96a5; margin-top: 6px;">
                 Sector: {sector} &nbsp;|&nbsp; Industry: {industry}
             </div>
         </div>
@@ -375,11 +365,11 @@ else:
     with head_col2:
         st.markdown(f"""
         <div class="groww-card" style="padding: 0; background: transparent; border: none;">
-            <div class="verdict-box-solid" style="background-color: {banner_bg};">
-                <div class="verdict-title">
+            <div style="background-color: {banner_bg}; border-radius: 12px; padding: 14px 18px; text-align: right; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; color: #0f141e;">
                     VERDICT: {action_decision}
                 </div>
-                <div class="verdict-desc">
+                <div style="font-size: 11px; color: #0f141e; font-weight: 600; opacity: 0.95; margin-top: 2px;">
                     {action_summary}
                 </div>
             </div>
@@ -389,22 +379,22 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 7. LIVE PRICE & CIRCUIT FORECAST SNAPSHOT
+    # 7. LIVE PRICE & MARKET STATS BAR (GROWW STYLE)
     # -------------------------------------------------------------
     h1, h2, h3, h4, h5, h6 = st.columns(6)
     h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
     h2.metric("Day Open", f"₹{day_open:.2f}")
     h3.metric("Day Close", f"₹{day_close:.2f}")
     h4.metric("Day High / Low", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f} / ₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
-    h5.metric("Upper Circuit Fcst", f"₹{upper_circuit:.2f}", f"+{int(circuit_pct*100)}% Band")
-    h6.metric("Lower Circuit Fcst", f"₹{lower_circuit:.2f}", f"-{int(circuit_pct*100)}% Band")
+    h5.metric("Upper Circuit Fcst", f"₹{upper_circuit:.2f}", f"+{int(circuit_pct*100)}% Limit")
+    h6.metric("Lower Circuit Fcst", f"₹{lower_circuit:.2f}", f"-{int(circuit_pct*100)}% Limit")
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. NEWS CATALYSTS (LAST 1 MONTH / UPCOMING)
+    # 8. NEWS CATALYSTS (LAST 1 MONTH & UPCOMING)
     # -------------------------------------------------------------
-    st.subheader("📰 Stock News & Catalysts (Past Month & Upcoming Outlook)")
+    st.subheader("📰 Stock News & Catalysts")
     if news_items:
         for item in news_items[:3]:
             title = item.get('title', 'News Headline')
@@ -419,35 +409,28 @@ else:
     # -------------------------------------------------------------
     # 9. DASHBOARD HEALTH CHECKS
     # -------------------------------------------------------------
-    st.markdown("##### ⚡ Dashboard Health Checks")
+    st.markdown("##### ⚡ Quick Health Check Overview")
     q1, q2, q3, q4 = st.columns(4)
 
     q1.metric(
         label="Price Valuation", 
         value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Expensive" if z_score_val > 1.5 else "Cheap"), 
-        delta=f"Z-Score: {z_score_val:+.2f} σ",
-        help="Checks if price is within standard statistical bounds compared to its 50-day average."
+        delta=f"Z-Score: {z_score_val:+.2f} σ"
     )
-
     q2.metric(
         label="Big Money Activity", 
         value="BUYING" if obv_slope_val > 0 else "SELLING", 
-        delta=f"OBV Delta: {obv_slope_val:,.0f}",
-        help="Evaluates institutional accumulation/distribution via OBV slope dynamics."
+        delta=f"OBV Delta: {obv_slope_val:,.0f}"
     )
-
     q3.metric(
         label="Price Speed / Stage", 
         value="RESTING / PAUSED" if squeeze_val else "MOVING FAST", 
-        delta="Preparing to Jump" if squeeze_val else "Price Expanding",
-        help="Tells you if the price is sitting still (resting) or currently making a fast move up/down."
+        delta="Preparing to Jump" if squeeze_val else "Price Expanding"
     )
-
     q4.metric(
         label="AI Next-Day Odds", 
         value=f"{prob_up_next_day:.1f}%", 
-        delta=f"Precision: {next_day_precision:.1f}%",
-        help="Ensemble model (XGBoost + Random Forest) predicting next trading day upward probability."
+        delta=f"Precision: {next_day_precision:.1f}%"
     )
 
     st.markdown("---")
@@ -456,7 +439,6 @@ else:
     # 10. MULTI-HORIZON AI FORECAST
     # -------------------------------------------------------------
     st.subheader("🤖 Ensemble AI Upward Odds Across Horizons")
-    
     cols = st.columns(3)
     for idx, item in enumerate(predictions_summary):
         col_idx = idx % 3
@@ -472,9 +454,9 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 11. FUNDAMENTALS & KELLY CAPITAL ALLOCATION
+    # 11. FUNDAMENTALS & KELLY RISK SIZING
     # -------------------------------------------------------------
-    st.subheader("🏛️ Fundamentals & Kelly Risk Sizing")
+    st.subheader("🏛️ Fundamentals & Risk Management")
     f1, f2, f3, f4, f5 = st.columns(5)
     f1.metric("Trailing P/E", f"{info.get('trailingPE', 'N/A')}")
     f2.metric("Price-to-Book", f"{info.get('priceToBook', 'N/A')}")
@@ -485,9 +467,9 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 12. CHARTS & FINANCIAL PERFORMANCE BREAKDOWN
+    # 12. CHARTS & FINANCIALS TABS
     # -------------------------------------------------------------
-    tab1, tab2, tab3 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials", "📈 Financial Performance & Growth"])
+    tab1, tab2, tab3 = st.tabs(["📊 Interactive Chart", "📜 Quarterly Financials", "📈 Financial Performance & Growth"])
 
     with tab1:
         hist_df = df.tail(120)
@@ -500,23 +482,24 @@ else:
         fig.add_trace(go.Candlestick(
             x=hist_df.index, open=hist_df['Open'], high=hist_df['High'],
             low=hist_df['Low'], close=hist_df['Close'], name="Price",
-            increasing_line_color='#00D09C', decreasing_line_color='#EB5B3C'
+            increasing_line_color='#00d09c', decreasing_line_color='#eb5b3c'
         ))
-        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_20'], mode='lines', name='SMA 20', line=dict(color='#FFA726', width=1)))
-        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_50'], mode='lines', name='SMA 50', line=dict(color='#29B6F6', width=1)))
-        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_200'], mode='lines', name='SMA 200', line=dict(color='#AB47BC', width=1.5)))
+        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_20'], mode='lines', name='SMA 20', line=dict(color='#ffa726', width=1)))
+        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_50'], mode='lines', name='SMA 50', line=dict(color='#29b6f6', width=1)))
+        fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_200'], mode='lines', name='SMA 200', line=dict(color='#ab47bc', width=1.5)))
 
-        fig.add_hline(y=poc_price, line_dash="solid", line_color="#E040FB", line_width=2, annotation_text=f"POC: ₹{poc_price:.2f}")
-        fig.add_hline(y=stop_loss, line_dash="dash", line_color="#EB5B3C", annotation_text=f"Stop-Loss (₹{stop_loss:.2f})")
-        fig.add_hline(y=take_profit, line_dash="dash", line_color="#00D09C", annotation_text=f"Target (₹{take_profit:.2f})")
+        fig.add_hline(y=poc_price, line_dash="solid", line_color="#e040fb", line_width=2, annotation_text=f"POC: ₹{poc_price:.2f}")
+        fig.add_hline(y=stop_loss, line_dash="dash", line_color="#eb5b3c", annotation_text=f"Stop-Loss (₹{stop_loss:.2f})")
+        fig.add_hline(y=take_profit, line_dash="dash", line_color="#00d09c", annotation_text=f"Target (₹{take_profit:.2f})")
 
         fig.update_layout(
             template="plotly_dark", 
-            height=420, 
+            height=440, 
             xaxis_title="Date", 
             yaxis_title="Price (₹)",
-            plot_bgcolor='#1F242D',
-            paper_bgcolor='#0E1116'
+            plot_bgcolor='#1c212b',
+            paper_bgcolor='#0f141e',
+            margin=dict(l=20, r=20, t=20, b=20)
         )
         st.plotly_chart(fig, use_container_width=True)
 
