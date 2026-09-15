@@ -9,12 +9,13 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & HIGH-VISIBILITY TERMINAL STYLING
+# 1. PAGE CONFIGURATION & HIGH-VISIBILITY DAYLIGHT STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
+    /* Reset padding for maximum screen real estate */
     .block-container {
         padding-top: 1.8rem !important;
         padding-bottom: 0rem !important;
@@ -22,6 +23,7 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
     
+    /* High-Contrast Dark Slate Terminal Card */
     .terminal-card {
         background-color: #161922;
         border: 1px solid #33394B;
@@ -56,6 +58,7 @@ st.markdown("""
         margin-top: 4px;
     }
 
+    /* Solid High-Visibility Verdict Badge with Outdoor Readability */
     .verdict-box-solid {
         border-radius: 6px;
         padding: 10px 14px;
@@ -95,7 +98,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# SIDEBAR CONTROLS
+# 2. SIDEBAR CONFIGURATION CONTROLS
 # -------------------------------------------------------------
 st.sidebar.header("🎯 Asset Settings")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
@@ -110,7 +113,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# CACHED DATA FETCHING LAYER
+# 3. CACHED DATA FETCHING & MODEL TRAINING
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -142,7 +145,7 @@ def train_xgboost(clean_data):
     accuracy = (model.predict(X_test) == y_test).mean() * 100
     return model, accuracy, features
 
-# Load Data
+# Load Asset Data
 df, info, financials = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
@@ -154,7 +157,7 @@ else:
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
 
     # -------------------------------------------------------------
-    # FEATURE ENGINEERING & QUANT METRICS
+    # 4. QUANTITATIVE FEATURE ENGINEERING
     # -------------------------------------------------------------
     df['SMA_20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
@@ -162,25 +165,30 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
+    # Valuation Z-Score
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
 
+    # Smart Money OBV Slope
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
+    # Volatility Squeeze State
     bb = BollingerBands(df['Close'], window=20, window_dev=2)
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
+    # Directional Target Setup
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
+    # Model Execution
     model, accuracy, features = train_xgboost(clean_df)
     latest_features = clean_df[features].tail(1)
     prob_up = model.predict_proba(latest_features)[0][1] * 100
 
-    # Live Price Metrics
+    # Real-Time Price Analytics
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     price_change = curr_price - prev_close
@@ -194,13 +202,14 @@ else:
     sma_200_val = float(df['SMA_200'].iloc[-1]) if not pd.isna(df['SMA_200'].iloc[-1]) else curr_price
     pe_ratio = info.get('trailingPE', None)
 
+    # Automated Risk Parameters
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
     take_profit = curr_price + (risk_per_share * risk_reward_ratio)
     max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # DYNAMIC MARKET-DRIVEN VERDICT SCORING ENGINE
+    # 5. DYNAMIC VERDICT & COLOR DECISION ENGINE
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
@@ -209,26 +218,26 @@ else:
     if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
-    # DYNAMIC COLOR ASSIGNMENT BASED ON LIVE MARKET ACTION
+    # Dynamic verdict colors tied directly to intraday momentum & quantitative health
     if pct_change > 0.0 and total_bullish_score >= 5 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
-        banner_bg = "#00C853"  # Vibrant Green: Live Gain + Bullish Signal
-        action_summary = f"Stock is up {pct_change:+.2f}% today with strong institutional support."
+        banner_bg = "#00C853"  # Vibrant Green
+        action_summary = f"Up {pct_change:+.2f}% today with strong institutional accumulation."
     elif pct_change < 0.0 or total_bullish_score < 4 or z_score_val > 2.0:
         action_decision = "SHORT / REDUCE"
-        banner_bg = "#D50000"  # Vibrant Red: Live Drop or Bearish Signal
-        action_summary = f"Stock trading down {pct_change:+.2f}% today under distribution pressure."
+        banner_bg = "#D50000"  # High-Visibility Red
+        action_summary = f"Down {pct_change:+.2f}% today under heavy selling pressure or overextension."
     elif pct_change == 0.0 or total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
-        banner_bg = "#FF6D00"  # Orange: Flat Market Conditions
-        action_summary = "Stock trading flat. Awaiting market trend direction."
+        banner_bg = "#FF6D00"  # Vibrant Orange
+        action_summary = "Trading flat; overall market momentum remains balanced."
     else:
         action_decision = "EXIT / AVOID"
-        banner_bg = "#AA00FF"  # High-Contrast Purple: High Volatility Squeeze
-        action_summary = "Conflicting volume momentum; wait for confirmation."
+        banner_bg = "#AA00FF"  # High-Contrast Purple
+        action_summary = "High volatility squeeze active; await trend confirmation."
 
     # -------------------------------------------------------------
-    # 1. SIDE-BY-SIDE DYNAMIC TERMINAL HEADER
+    # 6. HEADER CARDS (DAYLIGHT OPTIMIZED)
     # -------------------------------------------------------------
     head_col1, head_col2 = st.columns([1.6, 1])
 
@@ -259,21 +268,43 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 2. MICROSTRUCTURE & INSTITUTIONAL FLOW
+    # 7. QUANT HEALTH CHECKS (SIMPLIFIED METRICS WITH TOOLTIPS)
     # -------------------------------------------------------------
-    st.subheader("⚡ Microstructure & Institutional Flow")
+    st.subheader("⚡ Quant Edge Health Checks")
     q1, q2, q3, q4 = st.columns(4)
 
-    q1.metric("Price Z-Score", f"{z_score_val:+.2f} σ", 
-              "Oversold" if z_score_val < -2 else ("Overbought" if z_score_val > 2 else "Fair Value"))
-    q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Delta")
-    q3.metric("Volatility Squeeze", "FIRE READY" if squeeze_val else "EXPANDED", "Consolidation" if squeeze_val else "Active Trend")
-    q4.metric("XGBoost Edge", f"{prob_up:.1f}% Bullish", f"Acc: {accuracy:.1f}%")
+    q1.metric(
+        label="Price Valuation", 
+        value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Overbought" if z_score_val > 1.5 else "Oversold"), 
+        delta=f"{z_score_val:+.2f} σ",
+        help="Price Z-Score: Checks if the stock is normally priced (Fair Value), overly expensive (Overbought), or cheap (Oversold) relative to its 50-day trend."
+    )
+
+    q2.metric(
+        label="Big Money Flow", 
+        value="BUYING" if obv_slope_val > 0 else "SELLING", 
+        delta=f"{obv_slope_val:,.0f} Delta",
+        help="Smart Money Flow: Measures whether institutional volume is quietly building positions (BUYING) or dumping shares (SELLING)."
+    )
+
+    q3.metric(
+        label="Breakout Status", 
+        value="BUILDING ENERGY" if squeeze_val else "ACTIVE MOVE", 
+        delta="Consolidation" if squeeze_val else "Trending Now",
+        help="Volatility Squeeze: 'Building Energy' indicates the price is coiling for a major move. 'Active Move' means the breakout is currently underway."
+    )
+
+    q4.metric(
+        label="AI Forecast", 
+        value=f"{prob_up:.1f}% Win Odds", 
+        delta=f"Model Acc: {accuracy:.1f}%",
+        help="XGBoost Edge: An AI model analyzing historical market patterns to predict the percentage probability of a price increase tomorrow."
+    )
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 3. LIVE PRICE SNAPSHOT
+    # 8. LIVE PRICE SNAPSHOT
     # -------------------------------------------------------------
     h1, h2, h3, h4, h5 = st.columns(5)
     h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
@@ -286,7 +317,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 4. FUNDAMENTALS & RISK CONTROL
+    # 9. FUNDAMENTALS & RISK CONTROL
     # -------------------------------------------------------------
     st.subheader("🏛️ Fundamentals & Risk Control")
     f1, f2, f3, f4, f5 = st.columns(5)
@@ -299,9 +330,9 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 5. CHARTS & STATEMENTS
+    # 10. INTERACTIVE CHARTS & FINANCIAL STATEMENTS
     # -------------------------------------------------------------
-    tab1, tab2 = st.tabs(["📊 Price Action & POC", "📜 Quarterly Financials"])
+    tab1, tab2 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials"])
 
     with tab1:
         hist_df = df.tail(120)
