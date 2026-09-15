@@ -9,80 +9,91 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & ADVANCED TERMINAL CSS
+# PAGE CONFIGURATION & HIGH-VISIBILITY TERMINAL STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Reset padding to prevent header cutoff */
+    /* Reset padding for optimal top alignment */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.8rem !important;
         padding-bottom: 0rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
     
-    /* Advanced Side-by-Side Header Card */
-    .terminal-header-card {
-        background: linear-gradient(135deg, #1E222D 0%, #131722 100%);
-        border: 1px solid #2A2E39;
+    /* High-Contrast Terminal Header Card */
+    .terminal-card {
+        background-color: #161922;
+        border: 1px solid #33394B;
         border-radius: 8px;
         padding: 12px 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        min-height: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
     }
     
     .stock-title-main {
         font-size: 16px;
-        font-weight: 700;
-        color: #FFFFFF;
-        line-height: 1.3;
+        font-weight: 800;
+        color: #FFFFFF !important;
+        line-height: 1.2;
         margin: 0;
         word-break: break-word;
     }
     
     .stock-symbol-badge {
-        color: #00E5FF;
-        font-weight: 600;
+        color: #00E5FF !important;
+        font-weight: 700;
         font-size: 14px;
     }
 
     .stock-meta-info {
-        font-size: 11px;
-        color: #78909C;
-        margin-top: 3px;
+        font-size: 12px;
+        color: #E0E6ED !important;
+        font-weight: 500;
+        margin-top: 4px;
     }
 
-    /* Side-by-Side Compact Verdict Badge */
-    .compact-verdict-box {
+    /* Solid High-Visibility Verdict Badge */
+    .verdict-box-solid {
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 10px 14px;
         text-align: right;
         display: flex;
         flex-direction: column;
         justify-content: center;
         height: 100%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
     
     .verdict-title {
-        font-size: 13px;
-        font-weight: 800;
+        font-size: 14px;
+        font-weight: 900;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+        color: #FFFFFF !important;
     }
     
     .verdict-desc {
-        font-size: 10px;
-        opacity: 0.9;
+        font-size: 11px;
+        color: #FFFFFF !important;
+        font-weight: 500;
+        opacity: 0.95;
         margin-top: 2px;
         line-height: 1.2;
     }
 
     @media (max-width: 640px) {
-        .compact-verdict-box {
+        .verdict-box-solid {
             text-align: left;
             margin-top: 6px;
+        }
+        .stock-title-main {
+            font-size: 14px !important;
         }
     }
 </style>
@@ -200,7 +211,7 @@ else:
     max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # SCORING ENGINE
+    # HIGH-VISIBILITY SCORING ENGINE & BADGE COLORS
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
@@ -211,54 +222,46 @@ else:
 
     if total_bullish_score >= 6 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
-        banner_bg = "rgba(0, 200, 83, 0.15)"
-        banner_border = "#00C853"
-        banner_color = "#00E676"
+        banner_bg = "#00C853"  # Vibrant Green
         action_summary = "Technical trend, money flow, and model probability are aligned."
     elif total_bullish_score < 4 or z_score_val > 2.2:
         action_decision = "SHORT / REDUCE"
-        banner_bg = "rgba(255, 23, 68, 0.15)"
-        banner_border = "#FF1744"
-        banner_color = "#FF5252"
+        banner_bg = "#D50000"  # High-Visibility Red
         action_summary = "Distribution pressure present or price expansion is overextended."
     elif total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
-        banner_bg = "rgba(255, 145, 0, 0.15)"
-        banner_border = "#FF9100"
-        banner_color = "#FFAB40"
+        banner_bg = "#FF6D00"  # Vibrant Orange
         action_summary = "Macro trend intact; momentum suggests holding existing positions."
     else:
         action_decision = "EXIT / AVOID"
-        banner_bg = "rgba(213, 0, 249, 0.15)"
-        banner_border = "#D500F9"
-        banner_color = "#E040FB"
+        banner_bg = "#AA00FF"  # High-Contrast Purple
         action_summary = "Conflicting signals between volume and technical structure."
 
     # -------------------------------------------------------------
-    # 1. SIDE-BY-SIDE ADVANCED TERMINAL HEADER
+    # 1. SIDE-BY-SIDE HIGH-DAYLIGHT VISIBILITY HEADER
     # -------------------------------------------------------------
     head_col1, head_col2 = st.columns([1.6, 1])
 
     with head_col1:
         st.markdown(f"""
-        <div class="terminal-header-card">
+        <div class="terminal-card">
             <div class="stock-title-main">
                 {company_name} <span class="stock-symbol-badge">({ticker_symbol})</span>
             </div>
             <div class="stock-meta-info">
-                Sector: {sector} | Industry: {industry}
+                Sector: {sector} &nbsp;|&nbsp; Industry: {industry}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     with head_col2:
         st.markdown(f"""
-        <div class="terminal-header-card">
-            <div class="compact-verdict-box" style="background-color: {banner_bg}; border: 1px solid {banner_border}; border-radius: 6px;">
-                <div class="verdict-title" style="color: {banner_color};">
+        <div class="terminal-card" style="padding: 0; background: transparent; border: none;">
+            <div class="verdict-box-solid" style="background-color: {banner_bg};">
+                <div class="verdict-title">
                     VERDICT: {action_decision}
                 </div>
-                <div class="verdict-desc" style="color: #FFFFFF;">
+                <div class="verdict-desc">
                     {action_summary}
                 </div>
             </div>
