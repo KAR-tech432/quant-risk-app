@@ -71,35 +71,21 @@ ticker_symbol = (
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 2. CHART UPLOADER & MULTIMODAL ANALYSIS SECTION
+# 2. CHART UPLOADER SECTION (Dropdown removed as requested)
 # -------------------------------------------------------------
 st.subheader("📷 Upload Chart for Vision & Technical Analysis")
-up_c1, up_c2 = st.columns([2, 1])
+uploaded_chart = st.file_uploader(
+    "Upload Candlestick Chart Screenshot (TradingView / Broker Platform):",
+    type=["png", "jpg", "jpeg"],
+)
 
-with up_c1:
-    uploaded_chart = st.file_uploader(
-        "Upload Candlestick Chart Screenshot (TradingView / Broker Platform):",
-        type=["png", "jpg", "jpeg"],
-    )
-
-with up_c2:
-    chart_timeframe = st.selectbox(
-        "Select Chart Timeframe:",
-        [
-            "Hourly (1h)",
-            "Daily (1d)",
-            "Weekly (1w)",
-            "Monthly (1m)",
-            "Yearly (1y)",
-            "5 Years (5y)",
-        ],
-    )
+chart_timeframe = "Hourly (1h)"  # Fixed default since timeframe selector dropdown was removed
 
 if uploaded_chart is not None:
     img = Image.open(uploaded_chart)
     st.image(
         img,
-        caption=f"Uploaded {chart_timeframe} Chart for {ticker_symbol}",
+        caption=f"Uploaded Chart for {ticker_symbol}",
         use_container_width=True,
     )
     st.success(
@@ -138,7 +124,7 @@ with head_c1:
         f"""
     <div class="card" style="padding: 10px 16px;">
         <h4 style="margin:0; color:white; font-size:18px;">{ticker_symbol} <span style="font-size:12px; color:#8c96a5; font-weight:normal;">(Active Asset)</span></h4>
-        <p style="color:#8c96a5; margin:2px 0 0 0; font-size:11px;">Market: <b>{exchange}</b> | Timeframe Analyzed: <b>{chart_timeframe}</b></p>
+        <p style="color:#8c96a5; margin:2px 0 0 0; font-size:11px;">Market: <b>{exchange}</b> | Analysis Mode: <b>Vision & Technical Pipeline</b></p>
         <h4 style="margin:6px 0 0 0; color:#00d09c; font-size:16px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if daily_change >= 0 else '#eb5b3c'};">({daily_change:+.2f}% today)</span></h4>
     </div>
     """,
@@ -373,6 +359,6 @@ st.markdown("---")
 # -------------------------------------------------------------
 st.subheader("💡 Summary Guidance")
 st.info(
-    f"Based on the uploaded **{chart_timeframe}** chart analysis through our {hidden_execution_engine}, "
+    f"Based on the uploaded chart analysis through our {hidden_execution_engine}, "
     f"{ticker_symbol} shows solid structure near historical swing support. Hourly breakdown suggests positive continuation blocks ahead."
 )
