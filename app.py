@@ -18,7 +18,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Render title clearly using standard Markdown header to prevent rendering bugs
 st.markdown(
     "<h2 style='color: white; margin-bottom: 0;'>Real-Time Stock Analysis & Prediction Portal</h2>",
     unsafe_allow_html=True,
@@ -27,7 +26,9 @@ st.markdown("---")
 
 c1, c2 = st.columns([1, 2])
 with c1:
-    ex = st.selectbox("Market Exchange:", [".NS", ".BO"])
+    ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
+    # Map friendly labels to yfinance suffixes
+    ex = ".NS" if ex_label == "NSE" else ".BO"
 with c2:
     inp = st.text_input(
         "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY):",
@@ -37,7 +38,13 @@ with c2:
 
 ticker = None
 if inp:
-    ticker = inp if inp.endswith((".NS", ".BO")) else f"{inp}{ex}"
+    clean_inp = (
+        inp.replace(".NS", "")
+        .replace(".BO", "")
+        .replace(".BS", "")
+        .strip()
+    )
+    ticker = f"{clean_inp}{ex}"
 
 if ticker:
     try:
@@ -72,10 +79,10 @@ if ticker:
         hc1, hc2 = st.columns([1.5, 1])
         with hc1:
             st.markdown(
-                f"""<div class="card">
-                <h4 style="margin:0; color:white; font-size:16px;">{ticker} <span style="font-size:11px; color:#8c96a5;">(Live Market Data)</span></h4>
-                <p style="color:#8c96a5; margin:2px 0; font-size:11px;">Source: <b>Yahoo Finance API</b></p>
-                <h4 style="margin:4px 0 0 0; color:#00d09c; font-size:15px;">₹{current_price:.2f} <span style="font-size:11px; color:{'#00d09c' if chg >= 0 else '#eb5b3c'};">({chg:+.2f}%)</span></h4>
+                f"""<div class="card" style="padding: 22px 18px;">
+                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Live Market Data)</span></h4>
+                <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Source: <b>Yahoo Finance</b></p>
+                <h4 style="margin:8px 0 0 0; color:#00d09c; font-size:18px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if chg >= 0 else '#eb5b3c'};">({chg:+.2f}%)</span></h4>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -90,11 +97,12 @@ if ticker:
                 if action == "BUY"
                 else ("#ffa726" if action == "ACCUMULATE" else "#eb5b3c")
             )
+            # Increased size, padding, and font dimensions for the action box
             st.markdown(
-                f"""<div class="card" style="background: {color}; color: #0f141e; text-align: center;">
-                <div style="font-size:9px; font-weight:800;">REAL-TIME SIGNAL</div>
-                <div style="font-size:15px; font-weight:900; margin:2px 0;">{action}</div>
-                <div style="font-size:10px; font-weight:600;">Based on live price action & RSI metrics.</div>
+                f"""<div class="card" style="background: {color}; color: #0f141e; text-align: center; padding: 22px 18px;">
+                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">REAL-TIME SIGNAL</div>
+                <div style="font-size: 24px; font-weight: 900; margin: 6px 0;">{action}</div>
+                <div style="font-size: 12px; font-weight: 600;">Based on live price action & RSI metrics.</div>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -137,5 +145,5 @@ if ticker:
         )
 else:
     st.info(
-        "Please enter a stock ticker above to fetch accurate live market data and predictions."
+        "Please select your exchange and enter a stock ticker above to fetch accurate live market data and predictions."
     )
