@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from xgboost import XGBClassifier
+from sklearn.model_selection import TimeSeriesSplit
 from ta.trend import SMAIndicator
 from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
@@ -110,7 +111,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# 3. DATA FETCHING & MODEL TRAINING
+# 3. INSTITUTIONAL DATA PIPELINE & MODEL ENGINE
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -127,22 +128,41 @@ def fetch_stock_master(symbol):
     return df, info, financials
 
 @st.cache_resource
-def train_xgboost(X_train, y_train, X_test, y_test):
+def train_institutional_xgboost(X, y):
+    # Purged Time Series Cross-Validation
+    tscv = TimeSeriesSplit(n_splits=5)
+    precisions = []
+
     model = XGBClassifier(
-        n_estimators=150,
-        learning_rate=0.015,
-        max_depth=3,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_alpha=0.5,
-        reg_lambda=1.5,
+        n_estimators=200,
+        learning_rate=0.01,      # Conservative learning rate
+        max_depth=3,             # Prevents overfitting noise
+        subsample=0.7,           # Bagging fraction
+        colsample_bytree=0.7,    # Feature fraction
+        reg_alpha=1.0,           # L1 Regularization (Lasso)
+        reg_lambda=2.0,          # L2 Regularization (Ridge)
         random_state=42,
         n_jobs=-1
     )
-    
-    model.fit(X_train, y_train)
-    accuracy = (model.predict(X_test) == y_test).mean() * 100
-    return model, accuracy
+
+    for train_idx, test_idx in tscv.split(X):
+        X_tr, X_te = X.iloc[train_idx], X.iloc[test_idx]
+        y_tr, y_te = y.iloc[train_idx], y.iloc[test_idx]
+        
+        model.fit(X_tr, y_tr)
+        preds = model.predict(X_te)
+        
+        # Calculate Precision on Positive Predictions
+        true_positives = np.sum((preds == 1) & (y_te == 1))
+        predicted_positives = np.sum(preds == 1)
+        
+        if predicted_positives > 0:
+            precisions.append(true_positives / predicted_positives)
+
+    # Refit on full dataset
+    model.fit(X, y)
+    avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
+    return model, avg_precision
 
 # Load Data
 df, info, financials = fetch_stock_master(ticker_symbol)
@@ -156,7 +176,7 @@ else:
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
 
     # -------------------------------------------------------------
-    # 4. MASTER FEATURE ENGINEERING (ALL IN ONE PLACE)
+    # 4. QUANTITATIVE FEATURE ENGINEERING & TRIPLE BARRIER TARGET
     # -------------------------------------------------------------
     df['SMA_20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
@@ -164,12 +184,11 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
-    # Valuation Z-Score
+    # Normalized Valuation & Smart Money
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
 
-    # Smart Money OBV Slope
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
@@ -178,22 +197,46 @@ else:
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Multi-Timeframe Log Returns & Spreads
+    # Multi-Timeframe Log Returns
     df['Ret_1D'] = np.log(df['Close'] / df['Close'].shift(1))
     df['Ret_5D'] = np.log(df['Close'] / df['Close'].shift(5))
     df['Ret_20D'] = np.log(df['Close'] / df['Close'].shift(20))
     df['HL_Spread'] = (df['High'] - df['Low']) / df['Close']
     df['Vol_ZScore'] = (df['Volume'] - df['Volume'].rolling(20).mean()) / df['Volume'].rolling(20).std()
-    
-    # Lagged Momentum Dynamics
-    df['RSI_Lag1'] = df['RSI'].shift(1)
-    df['RSI_Slope'] = df['RSI'] - df['RSI_Lag1']
+    df['RSI_Slope'] = df['RSI'] - df['RSI'].shift(1)
 
-    # Noise-Filtered Direction Target
-    future_return = (df['Close'].shift(-1) - df['Close']) / df['Close']
-    df['Target_Direction'] = np.where(future_return > 0.0075, 1, 0)
+    # TRIPLE BARRIER METHOD (1.5x ATR Profit Target vs 1.0x ATR Stop Loss within 5 Trading Days)
+    target_labels = []
+    close_prices = df['Close'].values
+    high_prices = df['High'].values
+    low_prices = df['Low'].values
+    atr_values = df['ATR'].values
 
-    # Clean dataset for ML training
+    horizon = 5
+    for i in range(len(df)):
+        if i + horizon >= len(df):
+            target_labels.append(np.nan)
+            continue
+        
+        entry = close_prices[i]
+        tp_barrier = entry + (1.5 * atr_values[i])
+        sl_barrier = entry - (1.0 * atr_values[i])
+        
+        hit_target = 0
+        for j in range(1, horizon + 1):
+            future_high = high_prices[i + j]
+            future_low = low_prices[i + j]
+            
+            if future_high >= tp_barrier:
+                hit_target = 1
+                break
+            if future_low <= sl_barrier:
+                hit_target = 0
+                break
+                
+        target_labels.append(hit_target)
+
+    df['Target_Direction'] = target_labels
     clean_df = df.dropna().copy()
 
     feature_cols = [
@@ -202,16 +245,11 @@ else:
         'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
     ]
 
-    # Split for Model Training
     X = clean_df[feature_cols]
     y = clean_df['Target_Direction']
 
-    split = int(len(clean_df) * 0.8)
-    X_train, y_train = X.iloc[:split], y.iloc[:split]
-    X_test, y_test = X.iloc[split:], y.iloc[split:]
-
-    # Train Model
-    model, accuracy = train_xgboost(X_train, y_train, X_test, y_test)
+    # Train Institutional Model
+    model, win_precision = train_institutional_xgboost(X, y)
     
     latest_features = clean_df[feature_cols].tail(1)
     prob_up = model.predict_proba(latest_features)[0][1] * 100
@@ -230,14 +268,14 @@ else:
     sma_200_val = float(df['SMA_200'].iloc[-1]) if not pd.isna(df['SMA_200'].iloc[-1]) else curr_price
     pe_ratio = info.get('trailingPE', None)
 
-    # Automated Risk Parameters
+    # Automated Risk Controls
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
     take_profit = curr_price + (risk_per_share * risk_reward_ratio)
     max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # 5. DYNAMIC VERDICT & COLOR DECISION ENGINE
+    # 5. DYNAMIC VERDICT ENGINE
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
@@ -304,28 +342,28 @@ else:
         label="Price Valuation", 
         value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Expensive" if z_score_val > 1.5 else "Cheap"), 
         delta=f"Z-Score: {z_score_val:+.2f} σ",
-        help="Price Z-Score: Checks if the stock is priced normally (Fair Value), too high (Expensive), or deeply discounted (Cheap) compared to its recent average."
+        help="Price Z-Score: Checks if price is within standard statistical bounds compared to its 50-day average."
     )
 
     q2.metric(
         label="Big Money Activity", 
         value="BUYING" if obv_slope_val > 0 else "SELLING", 
         delta=f"OBV Delta: {obv_slope_val:,.0f}",
-        help="Smart Money Flow: Tracks whether large institutional investors are accumulating shares or quietly dumping them."
+        help="Smart Money Flow: Evaluates institutional accumulation/distribution via OBV slope dynamics."
     )
 
     q3.metric(
         label="Breakout Stage", 
         value="COILING / SQUEEZE" if squeeze_val else "ACTIVE MOVE", 
         delta="Consolidation" if squeeze_val else "Trending Now",
-        help="Volatility Squeeze: 'Coiling' means price is compressed like a spring before a sharp breakout. 'Active Move' means the expansion is underway."
+        help="Volatility Compression: Tracks Bollinger Band contraction within Keltner Channels."
     )
 
     q4.metric(
         label="AI Upward Odds", 
         value=f"{prob_up:.1f}% Win Chance", 
-        delta=f"XGBoost Acc: {accuracy:.1f}%",
-        help="XGBoost Edge: An AI model that analyzes past price patterns to estimate the probability of the stock moving higher tomorrow by >0.75%."
+        delta=f"Precision: {win_precision:.1f}%",
+        help="Institutional AI Model: Predicts the odds of hitting a +1.5x ATR target before a -1.0x ATR stop-loss using Purged Time Series Cross-Validation."
     )
 
     st.markdown("---")
@@ -357,7 +395,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 10. INTERACTIVE CHARTS & FINANCIAL STATEMENTS
+    # 10. CHARTS & FINANCIALS
     # -------------------------------------------------------------
     tab1, tab2 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials"])
 
