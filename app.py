@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="Groww-Style Stock Dashboard", page_icon="📈", layout="wide"
 )
 
-# Custom Styling (Groww Dark Theme UI/UX)
+# Custom Styling (Groww Dark Theme UI/UX with tighter padding)
 st.markdown(
     """
     <style>
@@ -17,31 +17,35 @@ st.markdown(
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         .block-container {
-            padding-top: 1.2rem !important;
-            padding-bottom: 2rem !important;
+            padding-top: 0.8rem !important;
+            padding-bottom: 1.5rem !important;
             padding-left: 1.5rem !important;
             padding-right: 1.5rem !important;
         }
         .card {
             background-color: #1c212b;
             border: 1px solid #28303d;
-            border-radius: 12px;
-            padding: 18px 22px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            padding: 12px 18px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
         }
         div[data-testid="stMetric"] {
             background-color: #1c212b;
             border: 1px solid #28303d;
-            padding: 14px 18px;
-            border-radius: 12px;
+            padding: 10px 14px;
+            border-radius: 10px;
         }
         div[data-testid="stMetric"] label {
-            font-size: 13px !important;
+            font-size: 12px !important;
             color: #8c96a5 !important;
         }
         div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-            font-size: 20px !important;
+            font-size: 18px !important;
             color: #ffffff !important;
+        }
+        /* Reduce vertical spacing between elements */
+        div.row-widget.stHorizontal {
+            margin-bottom: -10px;
         }
     </style>
 """,
@@ -76,7 +80,7 @@ hidden_execution_engine = "Ensemble Model (All Formulas)"
 hidden_confidence_interval = 95
 
 # -------------------------------------------------------------
-# 3. STOCK METRICS & LAYMAN LAYOUT HEADER
+# 3. STOCK METRICS & LAYMAN LAYOUT HEADER (Smaller Text & Tighter Gaps)
 # -------------------------------------------------------------
 current_price = 15.65
 prev_close = 16.02
@@ -99,10 +103,10 @@ head_c1, head_c2 = st.columns([1.5, 1])
 with head_c1:
     st.markdown(
         f"""
-    <div class="card">
-        <h2 style="margin:0; color:white;">{ticker_symbol} (Active Asset)</h2>
-        <p style="color:#8c96a5; margin:4px 0 0 0;">Market: <b>{exchange}</b> | Diagnostic View: <b>Institutional Grade</b></p>
-        <h3 style="margin:12px 0 0 0; color:#00d09c;">₹{current_price:.2f} <span style="font-size:14px; color:{'#00d09c' if daily_change >= 0 else '#eb5b3c'};">({daily_change:+.2f}% today)</span></h3>
+    <div class="card" style="padding: 10px 16px;">
+        <h4 style="margin:0; color:white; font-size:18px;">{ticker_symbol} <span style="font-size:12px; color:#8c96a5; font-weight:normal;">(Active Asset)</span></h4>
+        <p style="color:#8c96a5; margin:2px 0 0 0; font-size:11px;">Market: <b>{exchange}</b> | Diagnostic View: <b>Institutional Grade</b></p>
+        <h4 style="margin:6px 0 0 0; color:#00d09c; font-size:16px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if daily_change >= 0 else '#eb5b3c'};">({daily_change:+.2f}% today)</span></h4>
     </div>
     """,
         unsafe_allow_html=True,
@@ -111,10 +115,10 @@ with head_c1:
 with head_c2:
     st.markdown(
         f"""
-    <div class="card" style="background-color: {banner_color}; color: #0f141e; text-align: center;">
-        <h4 style="margin:0; font-size:13px; text-transform:uppercase; font-weight:800;">Action</h4>
-        <h2 style="margin:6px 0; font-size:22px; font-weight:900;">{layman_status}</h2>
-        <p style="margin:0; font-size:11px; font-weight:600;">{status_explanation}</p>
+    <div class="card" style="background-color: {banner_color}; color: #0f141e; text-align: center; padding: 10px 16px;">
+        <div style="margin:0; font-size:10px; text-transform:uppercase; font-weight:800; letter-spacing: 0.5px;">ACTION</div>
+        <div style="margin:2px 0; font-size:16px; font-weight:900;">{layman_status}</div>
+        <div style="margin:0; font-size:10px; font-weight:600; line-height: 1.2;">{status_explanation}</div>
     </div>
     """,
         unsafe_allow_html=True,
