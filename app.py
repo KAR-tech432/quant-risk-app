@@ -18,10 +18,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.subheader("🎯 Real-Time Stock Analysis & Prediction Portal")
+# Render title clearly using standard Markdown header to prevent rendering bugs
+st.markdown(
+    "<h2 style='color: white; margin-bottom: 0;'>Real-Time Stock Analysis & Prediction Portal</h2>",
+    unsafe_allow_html=True,
+)
 st.markdown("---")
 
-# Direct Ticker Input (Upload option completely removed)
 c1, c2 = st.columns([1, 2])
 with c1:
     ex = st.selectbox("Market Exchange:", [".NS", ".BO"])
@@ -56,7 +59,6 @@ if ticker:
             )
             chg = ((current_price - prev_close) / prev_close) * 100
 
-            # Calculate real RSI (14)
             delta = df_hist["Close"].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -67,7 +69,6 @@ if ticker:
                 else 50.0
             )
 
-        # Header Cards
         hc1, hc2 = st.columns([1.5, 1])
         with hc1:
             st.markdown(
@@ -100,7 +101,6 @@ if ticker:
 
         st.markdown("---")
 
-        # Metrics
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Last Traded Price", f"₹{current_price:.2f}", f"{chg:+.2f}%")
         m2.metric(
@@ -115,8 +115,7 @@ if ticker:
 
         st.markdown("---")
 
-        # Hourly Predictions based on real volatility
-        st.subheader("🔮 Projected Hourly Targets Matrix")
+        st.subheader("Projected Hourly Targets Matrix")
         volatility_factor = current_price * 0.0025
         hourly_data = [
             {
@@ -129,7 +128,7 @@ if ticker:
         st.dataframe(pd.DataFrame(hourly_data), use_container_width=True)
 
         st.markdown("---")
-        st.subheader("📊 Recent Historical Data (10 Days)")
+        st.subheader("Recent Historical Data (10 Days)")
         st.dataframe(df_hist.sort_index(ascending=False), use_container_width=True)
 
     except Exception as e:
@@ -138,5 +137,5 @@ if ticker:
         )
 else:
     st.info(
-        "👆 Please enter a stock ticker above to fetch accurate live market data and predictions."
+        "Please enter a stock ticker above to fetch accurate live market data and predictions."
     )
