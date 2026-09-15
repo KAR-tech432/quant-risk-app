@@ -9,13 +9,13 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & MOBILE-RESPONSIVE STYLING
+# PAGE CONFIGURATION & MOBILE STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Remove top whitespace */
+    /* Compact Top Margins for Mobile */
     .block-container {
         padding-top: 0.8rem !important;
         padding-bottom: 0rem !important;
@@ -23,33 +23,35 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
     
-    /* Responsive & Small Mobile Stock Name Header */
-    .stock-header {
+    /* Responsive Stock Title Container */
+    .stock-title-box {
+        background-color: #1E222D;
+        padding: 10px 14px;
+        border-radius: 6px;
+        border-left: 4px solid #00E5FF;
+        margin-bottom: 8px;
+    }
+    
+    .stock-title-text {
         font-size: 16px;
         font-weight: 700;
         color: #FFFFFF;
         line-height: 1.3;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
         word-break: break-word;
-        hyphens: auto;
     }
     
-    .stock-ticker {
-        font-size: 13px;
+    .stock-symbol-tag {
         color: #00E5FF;
         font-weight: 600;
-        display: inline-block;
     }
 
-    .stock-meta {
+    .stock-sub-meta {
         font-size: 11px;
         color: #90A4AE;
-        margin-top: 2px;
-        margin-bottom: 6px;
+        margin-top: 3px;
     }
 
-    /* Ultra-Compact System Verdict Banner for Mobile */
+    /* Ultra-Compact System Verdict Banner */
     .decision-banner {
         padding: 6px 10px;
         border-radius: 5px;
@@ -69,29 +71,21 @@ st.markdown("""
         margin-top: 3px;
     }
 
-    /* Force mobile font scaling */
     @media (max-width: 640px) {
-        .stock-header {
+        .stock-title-text {
             font-size: 14px !important;
-        }
-        .stock-ticker {
-            font-size: 12px !important;
         }
         .decision-banner {
             font-size: 12px !important;
-            padding: 5px 8px !important;
-        }
-        .decision-subtext {
-            font-size: 10px !important;
         }
     }
 </style>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# SIDEBAR CONTROLS & INPUT SANITIZATION
+# SIDEBAR CONTROLS
 # -------------------------------------------------------------
-st.sidebar.header("🎯 Asset & Strategy Settings")
+st.sidebar.header("🎯 Asset Settings")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 raw_input = st.sidebar.text_input("Stock Symbol:", "JPPOWER").strip().upper()
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
@@ -111,11 +105,14 @@ def fetch_stock_master(symbol):
     ticker = yf.Ticker(symbol)
     df = ticker.history(period="2y", interval="1d")
     
-    info = ticker.info if hasattr(ticker, 'info') else {}
-    major_holders = ticker.major_holders if hasattr(ticker, 'major_holders') else pd.DataFrame()
+    info = {}
+    try:
+        info = ticker.info
+    except Exception:
+        info = {}
+        
     financials = ticker.quarterly_financials if hasattr(ticker, 'quarterly_financials') else pd.DataFrame()
-    
-    return df, info, major_holders, financials
+    return df, info, financials
 
 @st.cache_resource
 def train_xgboost(clean_data):
@@ -134,12 +131,13 @@ def train_xgboost(clean_data):
     return model, accuracy, features
 
 # Load Data
-df, info, major_holders, financials = fetch_stock_master(ticker_symbol)
+df, info, financials = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
     st.error(f"Could not load market data for **{ticker_symbol}**. Verify symbol or exchange configuration.")
 else:
-    company_name = info.get('longName', ticker_symbol)
+    # --- ROBUST STOCK NAME EXTRACTION ---
+    company_name = info.get('longName') or info.get('shortName') or ticker_symbol
     sector = info.get('sector', 'N/A')
     industry = info.get('industry', 'N/A')
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
@@ -224,14 +222,16 @@ else:
         action_summary = "Conflicting signals between volume and technical structure."
 
     # -------------------------------------------------------------
-    # 1. MOBILE-READY HEADER & VERDICT BANNER
+    # 1. GUARANTEED STOCK NAME HEADER (MOBILE-FRIENDLY)
     # -------------------------------------------------------------
     st.markdown(f"""
-    <div class="stock-header">
-        {company_name} <span class="stock-ticker">({ticker_symbol})</span>
-    </div>
-    <div class="stock-meta">
-        Sector: {sector} | Industry: {industry}
+    <div class="stock-title-box">
+        <div class="stock-title-text">
+            {company_name} <span class="stock-symbol-tag">({ticker_symbol})</span>
+        </div>
+        <div class="stock-sub-meta">
+            Sector: {sector} | Industry: {industry}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -243,7 +243,7 @@ else:
     """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 2. MICROSTRUCTURE & SMART MONEY FLOW
+    # 2. MICROSTRUCTURE & INSTITUTIONAL FLOW
     # -------------------------------------------------------------
     st.subheader("⚡ Microstructure & Institutional Flow")
     q1, q2, q3, q4 = st.columns(4)
