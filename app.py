@@ -51,23 +51,12 @@ st.markdown(
 # -------------------------------------------------------------
 # 1. TOP SEARCH & EXCHANGE SELECTION BAR
 # -------------------------------------------------------------
-top_c1, top_c2, top_c3 = st.columns([1.2, 1.2, 3.2])
+top_c1, top_c2 = st.columns(2)
 with top_c1:
     exchange = st.selectbox("Market Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 with top_c2:
     raw_input = (
         st.text_input("Search Stock Name/Ticker:", "JPPOWER").strip().upper()
-    )
-with top_c3:
-    st.markdown(
-        "<div style='font-size: 11px; color: #8c96a5; margin-bottom: 2px; font-weight: 600;'>🔥 SECTORS TRENDING TODAY</div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<div style='background-color: #1c212b; border: 1px solid #28303d; padding: 6px 14px; border-radius: 20px; color: #00d09c; font-size: 11px; font-weight: 600; display: inline-block;'>"
-        "⚡ IT (+1.4%) &nbsp;&nbsp; 🚀 Metal (+2.1%) &nbsp;&nbsp; 💊 Pharma (+0.9%) &nbsp;&nbsp; 🏦 Bank (+0.4%)"
-        "</div>",
-        unsafe_allow_html=True,
     )
 
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
@@ -93,9 +82,18 @@ current_price = 15.65
 prev_close = 16.02
 daily_change = -2.31
 
+# Layman terms status: BUY, SELL, SHORT, or ACCUMULATE
 layman_status = "ACCUMULATE"
-banner_color = "#ffa726"
 status_explanation = "The price is sitting at a discount relative to its historical average. While short-term selling is active, it's a solid candidate to accumulate gradually in small portions."
+
+# Dynamic color mapping based on market condition / layman status
+status_color_map = {
+    "BUY": "#00d09c",  # Green
+    "ACCUMULATE": "#ffa726",  # Orange / Amber
+    "SELL": "#eb5b3c",  # Red
+    "SHORT": "#c62828",  # Dark Red
+}
+banner_color = status_color_map.get(layman_status, "#ffa726")
 
 head_c1, head_c2 = st.columns([1.5, 1])
 with head_c1:
@@ -114,7 +112,7 @@ with head_c2:
     st.markdown(
         f"""
     <div class="card" style="background-color: {banner_color}; color: #0f141e; text-align: center;">
-        <h4 style="margin:0; font-size:13px; text-transform:uppercase; font-weight:800;">Layman Action Status</h4>
+        <h4 style="margin:0; font-size:13px; text-transform:uppercase; font-weight:800;">Action</h4>
         <h2 style="margin:6px 0; font-size:22px; font-weight:900;">{layman_status}</h2>
         <p style="margin:0; font-size:11px; font-weight:600;">{status_explanation}</p>
     </div>
@@ -149,7 +147,7 @@ with col4:
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 5. FORECAST MATRIX (CLEAN TABLE WITHOUT MATHEMATICAL MODEL BASIS)
+# 5. FORECAST MATRIX
 # -------------------------------------------------------------
 st.subheader("🔮 Forecast")
 
