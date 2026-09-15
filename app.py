@@ -83,19 +83,16 @@ st.markdown("---")
 # -------------------------------------------------------------
 # 2. HIDDEN ADVANCED MODEL CONFIGURATION (In Background State)
 # -------------------------------------------------------------
-# The complex model options and confidence sliders are stored invisibly behind the scenes
 hidden_execution_engine = "Ensemble Model (All Formulas)"
 hidden_confidence_interval = 95
 
 # -------------------------------------------------------------
 # 3. STOCK METRICS & LAYMAN LAYOUT HEADER
 # -------------------------------------------------------------
-# Simulated dynamic values reflecting the active ticker selection
 current_price = 15.65
 prev_close = 16.02
 daily_change = -2.31
 
-# Simple laymen terms status determination: Buy / Sell / Short / Accumulate
 layman_status = "ACCUMULATE"
 banner_color = "#ffa726"
 status_explanation = "The price is sitting at a discount relative to its historical average. While short-term selling is active, it's a solid candidate to accumulate gradually in small portions."
@@ -223,41 +220,9 @@ st.dataframe(df_preds, use_container_width=True)
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 6. TECHNICAL INDICATOR BREAKDOWN
+# 6. SUMMARY GUIDANCE
 # -------------------------------------------------------------
-st.subheader("📊 Comprehensive Mathematical Formula Breakdown")
-
-indicators_data = [
-    {
-        "Indicator": "Relative Strength Index (RSI 14)",
-        "Value": "33.60",
-        "Signal": "Neutral/Oversold boundary; indicates declining bearish momentum.",
-    },
-    {
-        "Indicator": "Moving Average Convergence Divergence (MACD)",
-        "Value": "-0.33 (Signal: -0.29)",
-        "Signal": "Bearish crossover active; institutional distribution ongoing.",
-    },
-    {
-        "Indicator": "Money Flow Index (MFI 14)",
-        "Value": "32.69",
-        "Signal": "Low capital inflow; tracks volume-weighted selling pressure.",
-    },
-    {
-        "Indicator": "Average True Range (ATR 14)",
-        "Value": "₹0.45",
-        "Signal": "Moderate volatility boundary expected per trading session.",
-    },
-    {
-        "Indicator": "Classic Pivot Support (S1)",
-        "Value": "₹15.81 - ₹15.91",
-        "Signal": "Immediate downside floor breached; tracking secondary support.",
-    },
-]
-
-st.table(pd.DataFrame(indicators_data))
-
-st.markdown("### 💡 Summary Guidance")
+st.subheader("💡 Summary Guidance")
 st.info(
     f"The model engine ({hidden_execution_engine} at {hidden_confidence_interval}% confidence) confirms that while "
     f"{ticker_symbol} is currently listed at a mathematical discount, short-term selling requires an **ACCUMULATE** approach rather than "
