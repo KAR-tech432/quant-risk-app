@@ -111,7 +111,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# 3. INSTITUTIONAL DATA PIPELINE & MODEL ENGINE
+# 3. MULTI-HORIZON AI MODEL ENGINE
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -128,19 +128,21 @@ def fetch_stock_master(symbol):
     return df, info, financials
 
 @st.cache_resource
-def train_institutional_xgboost(X, y):
-    # Purged Time Series Cross-Validation
-    tscv = TimeSeriesSplit(n_splits=5)
+def train_horizon_model(X, y):
+    if len(y.dropna()) < 50:
+        return None, 50.0
+
+    tscv = TimeSeriesSplit(n_splits=3)
     precisions = []
 
     model = XGBClassifier(
-        n_estimators=200,
-        learning_rate=0.01,      # Conservative learning rate
-        max_depth=3,             # Prevents overfitting noise
-        subsample=0.7,           # Bagging fraction
-        colsample_bytree=0.7,    # Feature fraction
-        reg_alpha=1.0,           # L1 Regularization (Lasso)
-        reg_lambda=2.0,          # L2 Regularization (Ridge)
+        n_estimators=100,
+        learning_rate=0.02,
+        max_depth=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        reg_alpha=0.5,
+        reg_lambda=1.5,
         random_state=42,
         n_jobs=-1
     )
@@ -152,14 +154,11 @@ def train_institutional_xgboost(X, y):
         model.fit(X_tr, y_tr)
         preds = model.predict(X_te)
         
-        # Calculate Precision on Positive Predictions
-        true_positives = np.sum((preds == 1) & (y_te == 1))
-        predicted_positives = np.sum(preds == 1)
-        
-        if predicted_positives > 0:
-            precisions.append(true_positives / predicted_positives)
+        true_pos = np.sum((preds == 1) & (y_te == 1))
+        pred_pos = np.sum(preds == 1)
+        if pred_pos > 0:
+            precisions.append(true_pos / pred_pos)
 
-    # Refit on full dataset
     model.fit(X, y)
     avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
     return model, avg_precision
@@ -176,7 +175,7 @@ else:
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
 
     # -------------------------------------------------------------
-    # 4. QUANTITATIVE FEATURE ENGINEERING & TRIPLE BARRIER TARGET
+    # 4. FEATURE ENGINEERING & MULTI-HORIZON TARGETS
     # -------------------------------------------------------------
     df['SMA_20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
@@ -184,7 +183,6 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
-    # Normalized Valuation & Smart Money
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
@@ -192,12 +190,10 @@ else:
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
-    # Volatility Squeeze State
     bb = BollingerBands(df['Close'], window=20, window_dev=2)
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Multi-Timeframe Log Returns
     df['Ret_1D'] = np.log(df['Close'] / df['Close'].shift(1))
     df['Ret_5D'] = np.log(df['Close'] / df['Close'].shift(5))
     df['Ret_20D'] = np.log(df['Close'] / df['Close'].shift(20))
@@ -205,39 +201,21 @@ else:
     df['Vol_ZScore'] = (df['Volume'] - df['Volume'].rolling(20).mean()) / df['Volume'].rolling(20).std()
     df['RSI_Slope'] = df['RSI'] - df['RSI'].shift(1)
 
-    # TRIPLE BARRIER METHOD (1.5x ATR Profit Target vs 1.0x ATR Stop Loss within 5 Trading Days)
-    target_labels = []
-    close_prices = df['Close'].values
-    high_prices = df['High'].values
-    low_prices = df['Low'].values
-    atr_values = df['ATR'].values
+    # Intraday / Same Day Target (Close > Open)
+    df['Target_SameDay'] = np.where(df['Close'] > df['Open'], 1, 0)
 
-    horizon = 5
-    for i in range(len(df)):
-        if i + horizon >= len(df):
-            target_labels.append(np.nan)
-            continue
-        
-        entry = close_prices[i]
-        tp_barrier = entry + (1.5 * atr_values[i])
-        sl_barrier = entry - (1.0 * atr_values[i])
-        
-        hit_target = 0
-        for j in range(1, horizon + 1):
-            future_high = high_prices[i + j]
-            future_low = low_prices[i + j]
-            
-            if future_high >= tp_barrier:
-                hit_target = 1
-                break
-            if future_low <= sl_barrier:
-                hit_target = 0
-                break
-                
-        target_labels.append(hit_target)
-
-    df['Target_Direction'] = target_labels
-    clean_df = df.dropna().copy()
+    # Define Multi-Horizon Days
+    horizons = {
+        "Same Day (Remaining)": 0,
+        "Next Trading Day (1D)": 1,
+        "Next 3 Days": 3,
+        "Next Week (5D)": 5,
+        "Next 10 Days": 10,
+        "Next 15 Days": 15,
+        "Next 1 Month (21D)": 21,
+        "Next 2 Months (42D)": 42,
+        "Next 3 Months (63D)": 63
+    }
 
     feature_cols = [
         'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'ATR', 
@@ -245,16 +223,41 @@ else:
         'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
     ]
 
-    X = clean_df[feature_cols]
-    y = clean_df['Target_Direction']
-
-    # Train Institutional Model
-    model, win_precision = train_institutional_xgboost(X, y)
+    # Generate multi-horizon probability predictions
+    predictions_summary = []
     
-    latest_features = clean_df[feature_cols].tail(1)
-    prob_up = model.predict_proba(latest_features)[0][1] * 100
+    for label, days in horizons.items():
+        temp_df = df.copy()
+        if days == 0:
+            y_series = temp_df['Target_SameDay']
+        else:
+            future_ret = (temp_df['Close'].shift(-days) - temp_df['Close']) / temp_df['Close']
+            # Dynamic profit threshold scaled to horizon square-root time
+            thresh = 0.005 * np.sqrt(days)
+            y_series = np.where(future_ret > thresh, 1, 0)
+        
+        temp_df['Target'] = y_series
+        clean_temp = temp_df.dropna(subset=feature_cols + ['Target'])
+        
+        X_h = clean_temp[feature_cols]
+        y_h = clean_temp['Target']
+        
+        m, prec = train_horizon_model(X_h, y_h)
+        if m is not None:
+            latest_x = df[feature_cols].tail(1).fillna(0)
+            prob = m.predict_proba(latest_x)[0][1] * 100
+        else:
+            prob = 50.0
+            prec = 50.0
+            
+        predictions_summary.append({
+            "Horizon": label,
+            "Upward Odds": prob,
+            "Model Precision": prec
+        })
 
-    # Live Price Analytics
+    # Base Metrics
+    clean_df = df.dropna(subset=feature_cols).copy()
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     price_change = curr_price - prev_close
@@ -268,6 +271,9 @@ else:
     sma_200_val = float(df['SMA_200'].iloc[-1]) if not pd.isna(df['SMA_200'].iloc[-1]) else curr_price
     pe_ratio = info.get('trailingPE', None)
 
+    prob_up_next_day = predictions_summary[1]["Upward Odds"]
+    next_day_precision = predictions_summary[1]["Model Precision"]
+
     # Automated Risk Controls
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
@@ -280,7 +286,7 @@ else:
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
     if obv_slope_val > 0: total_bullish_score += 2
-    if prob_up >= 55.0: total_bullish_score += 2
+    if prob_up_next_day >= 55.0: total_bullish_score += 2
     if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
@@ -360,16 +366,35 @@ else:
     )
 
     q4.metric(
-        label="AI Upward Odds", 
-        value=f"{prob_up:.1f}% Win Chance", 
-        delta=f"Precision: {win_precision:.1f}%",
-        help="Institutional AI Model: Predicts the odds of hitting a +1.5x ATR target before a -1.0x ATR stop-loss using Purged Time Series Cross-Validation."
+        label="AI Next-Day Odds", 
+        value=f"{prob_up_next_day:.1f}% Win Chance", 
+        delta=f"Precision: {next_day_precision:.1f}%",
+        help="XGBoost model predicting next trading day upward probability."
     )
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. LIVE PRICE SNAPSHOT
+    # 8. MULTI-HORIZON AI UPWARD ODDS FORECAST (FULL VISIBILITY)
+    # -------------------------------------------------------------
+    st.subheader("🤖 AI Upward Odds Across Time Horizons")
+    
+    cols = st.columns(3)
+    for idx, item in enumerate(predictions_summary):
+        col_idx = idx % 3
+        with cols[col_idx]:
+            prob_val = item['Upward Odds']
+            signal_color = "🟢 Bullish" if prob_val >= 55.0 else ("🔴 Bearish" if prob_val <= 45.0 else "🟡 Neutral")
+            st.metric(
+                label=item["Horizon"],
+                value=f"{prob_val:.1f}% Win Odds",
+                delta=f"{signal_color} (Precision: {item['Model Precision']:.1f}%)"
+            )
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 9. LIVE PRICE SNAPSHOT
     # -------------------------------------------------------------
     h1, h2, h3, h4, h5 = st.columns(5)
     h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
@@ -382,7 +407,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 9. FUNDAMENTALS & RISK CONTROL
+    # 10. FUNDAMENTALS & RISK CONTROL
     # -------------------------------------------------------------
     st.subheader("🏛️ Fundamentals & Risk Control")
     f1, f2, f3, f4, f5 = st.columns(5)
@@ -395,7 +420,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 10. CHARTS & FINANCIALS
+    # 11. CHARTS & FINANCIALS
     # -------------------------------------------------------------
     tab1, tab2 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials"])
 
