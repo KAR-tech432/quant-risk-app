@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 from ta.trend import SMAIndicator
 from ta.momentum import RSIIndicator
@@ -12,7 +13,7 @@ from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 # -------------------------------------------------------------
 # 1. PAGE CONFIGURATION & STYLING
 # -------------------------------------------------------------
-st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
+st.set_page_config(page_title="Apex Quant Engine", layout="wide")
 
 st.markdown("""
 <style>
@@ -22,7 +23,6 @@ st.markdown("""
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
     }
-    
     .terminal-card {
         background-color: #161922;
         border: 1px solid #33394B;
@@ -34,29 +34,24 @@ st.markdown("""
         justify-content: center;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
     }
-    
     .stock-title-main {
         font-size: 16px;
         font-weight: 800;
         color: #FFFFFF !important;
         line-height: 1.2;
         margin: 0;
-        word-break: break-word;
     }
-    
     .stock-symbol-badge {
         color: #00E5FF !important;
         font-weight: 700;
         font-size: 14px;
     }
-
     .stock-meta-info {
         font-size: 12px;
         color: #E0E6ED !important;
         font-weight: 500;
         margin-top: 4px;
     }
-
     .verdict-box-solid {
         border-radius: 6px;
         padding: 10px 14px;
@@ -66,9 +61,7 @@ st.markdown("""
         justify-content: center;
         height: 100%;
         box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        transition: background-color 0.3s ease;
     }
-    
     .verdict-title {
         font-size: 14px;
         font-weight: 900;
@@ -76,21 +69,12 @@ st.markdown("""
         text-transform: uppercase;
         color: #FFFFFF !important;
     }
-    
     .verdict-desc {
         font-size: 11px;
         color: #FFFFFF !important;
         font-weight: 500;
         opacity: 0.95;
         margin-top: 2px;
-        line-height: 1.2;
-    }
-
-    @media (max-width: 640px) {
-        .verdict-box-solid {
-            text-align: left;
-            margin-top: 6px;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,7 +82,7 @@ st.markdown("""
 # -------------------------------------------------------------
 # 2. SIDEBAR CONFIGURATION
 # -------------------------------------------------------------
-st.sidebar.header("🎯 Asset Settings")
+st.sidebar.header("🎯 Apex Engine Settings")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 raw_input = st.sidebar.text_input("Stock Symbol:", "JPPOWER").strip().upper()
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
@@ -108,62 +92,68 @@ ticker_symbol = f"{sanitized_symbol}{suffix}" if not sanitized_symbol.endswith((
 
 risk_reward_ratio = st.sidebar.slider("Risk-to-Reward Ratio:", 1.0, 4.0, 2.0, 0.5)
 atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0.25)
-capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
+capital_allocated = st.sidebar.number_input("Capital Portfolio (₹):", value=100000, step=10000)
 
 # -------------------------------------------------------------
-# 3. MULTI-HORIZON AI MODEL ENGINE
+# 3. ADVANCED ENSEMBLE AI MODEL ENGINE
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
     ticker = yf.Ticker(symbol)
     df = ticker.history(period="2y", interval="1d")
-    
     info = {}
     try:
         info = ticker.info
     except Exception:
         info = {}
-        
     financials = ticker.quarterly_financials if hasattr(ticker, 'quarterly_financials') else pd.DataFrame()
     return df, info, financials
 
 @st.cache_resource
-def train_horizon_model(X, y):
-    if len(y.dropna()) < 50:
+def train_ensemble_model(X, y):
+    if len(y.dropna()) < 60:
         return None, 50.0
 
     tscv = TimeSeriesSplit(n_splits=3)
     precisions = []
 
-    model = XGBClassifier(
-        n_estimators=100,
-        learning_rate=0.02,
-        max_depth=3,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_alpha=0.5,
-        reg_lambda=1.5,
-        random_state=42,
-        n_jobs=-1
+    # Model 1: XGBoost Classifier
+    xgb = XGBClassifier(
+        n_estimators=120, learning_rate=0.015, max_depth=3,
+        subsample=0.8, colsample_bytree=0.8, reg_alpha=0.5,
+        reg_lambda=1.5, random_state=42, n_jobs=-1
+    )
+
+    # Model 2: Random Forest Classifier
+    rf = RandomForestClassifier(
+        n_estimators=100, max_depth=4, min_samples_split=5,
+        random_state=42, n_jobs=-1
     )
 
     for train_idx, test_idx in tscv.split(X):
         X_tr, X_te = X.iloc[train_idx], X.iloc[test_idx]
         y_tr, y_te = y.iloc[train_idx], y.iloc[test_idx]
         
-        model.fit(X_tr, y_tr)
-        preds = model.predict(X_te)
+        xgb.fit(X_tr, y_tr)
+        rf.fit(X_tr, y_tr)
+        
+        # Blended Probability Predictions
+        p1 = xgb.predict_proba(X_te)[:, 1]
+        p2 = rf.predict_proba(X_te)[:, 1]
+        blend_p = (p1 + p2) / 2.0
+        preds = (blend_p >= 0.52).astype(int)
         
         true_pos = np.sum((preds == 1) & (y_te == 1))
         pred_pos = np.sum(preds == 1)
         if pred_pos > 0:
             precisions.append(true_pos / pred_pos)
 
-    model.fit(X, y)
+    xgb.fit(X, y)
+    rf.fit(X, y)
     avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
-    return model, avg_precision
+    return (xgb, rf), avg_precision
 
-# Load Data
+# Load Market Data
 df, info, financials = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
@@ -175,7 +165,7 @@ else:
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
 
     # -------------------------------------------------------------
-    # 4. FEATURE ENGINEERING & MULTI-HORIZON TARGETS
+    # 4. QUANTITATIVE FEATURE PIPELINE & MULTI-HORIZONS
     # -------------------------------------------------------------
     df['SMA_20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
@@ -201,10 +191,8 @@ else:
     df['Vol_ZScore'] = (df['Volume'] - df['Volume'].rolling(20).mean()) / df['Volume'].rolling(20).std()
     df['RSI_Slope'] = df['RSI'] - df['RSI'].shift(1)
 
-    # Intraday / Same Day Target (Close > Open)
     df['Target_SameDay'] = np.where(df['Close'] > df['Open'], 1, 0)
 
-    # Define Multi-Horizon Days
     horizons = {
         "Same Day (Remaining)": 0,
         "Next Trading Day (1D)": 1,
@@ -223,7 +211,6 @@ else:
         'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
     ]
 
-    # Generate multi-horizon probability predictions
     predictions_summary = []
     
     for label, days in horizons.items():
@@ -241,10 +228,12 @@ else:
         X_h = clean_temp[feature_cols]
         y_h = clean_temp['Target']
         
-        m, prec = train_horizon_model(X_h, y_h)
-        if m is not None:
+        models, prec = train_ensemble_model(X_h, y_h)
+        if models is not None:
             latest_x = df[feature_cols].tail(1).fillna(0)
-            prob = m.predict_proba(latest_x)[0][1] * 100
+            p1 = models[0].predict_proba(latest_x)[0][1]
+            p2 = models[1].predict_proba(latest_x)[0][1]
+            prob = ((p1 + p2) / 2.0) * 100
         else:
             prob = 50.0
             prec = 50.0
@@ -255,7 +244,6 @@ else:
             "Model Precision": prec
         })
 
-    # Base Metrics
     clean_df = df.dropna(subset=feature_cols).copy()
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
@@ -273,30 +261,41 @@ else:
     prob_up_next_day = predictions_summary[1]["Upward Odds"]
     next_day_precision = predictions_summary[1]["Model Precision"]
 
-    # Automated Risk Controls
+    # -------------------------------------------------------------
+    # 5. KELLY CRITERION & RISK ENGINE
+    # -------------------------------------------------------------
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
     take_profit = curr_price + (risk_per_share * risk_reward_ratio)
-    max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
+
+    # Kelly Formula: f* = (p * b - q) / b
+    p_win = prob_up_next_day / 100.0
+    q_loss = 1.0 - p_win
+    b_ratio = risk_reward_ratio
+    kelly_fraction = (p_win * b_ratio - q_loss) / b_ratio if b_ratio > 0 else 0.0
+    half_kelly = max(0.0, kelly_fraction * 0.5)  # Fractional Kelly for conservatism
+
+    suggested_risk_amount = capital_allocated * half_kelly
+    max_shares = int(suggested_risk_amount / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # 5. DYNAMIC VERDICT ENGINE
+    # 6. DYNAMIC VERDICT & HEADER
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
     if obv_slope_val > 0: total_bullish_score += 2
-    if prob_up_next_day >= 55.0: total_bullish_score += 2
+    if prob_up_next_day >= 53.0: total_bullish_score += 2
     if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
     if pct_change > 0.0 and total_bullish_score >= 5 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
         banner_bg = "#00C853"
-        action_summary = f"Up {pct_change:+.2f}% today with strong institutional accumulation."
+        action_summary = f"Up {pct_change:+.2f}% today with strong institutional edge."
     elif pct_change < 0.0 or total_bullish_score < 4 or z_score_val > 2.0:
         action_decision = "SHORT / REDUCE"
         banner_bg = "#D50000"
-        action_summary = f"Down {pct_change:+.2f}% today under heavy selling pressure or overextension."
+        action_summary = f"Down {pct_change:+.2f}% today under selling pressure or overextension."
     elif pct_change == 0.0 or total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
         banner_bg = "#FF6D00"
@@ -304,11 +303,8 @@ else:
     else:
         action_decision = "EXIT / AVOID"
         banner_bg = "#AA00FF"
-        action_summary = "High volatility squeeze active; await trend confirmation."
+        action_summary = "High volatility active; await trend confirmation."
 
-    # -------------------------------------------------------------
-    # 6. HEADER CARDS
-    # -------------------------------------------------------------
     head_col1, head_col2 = st.columns([1.6, 1])
 
     with head_col1:
@@ -347,44 +343,43 @@ else:
         label="Price Valuation", 
         value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Expensive" if z_score_val > 1.5 else "Cheap"), 
         delta=f"Z-Score: {z_score_val:+.2f} σ",
-        help="Price Z-Score: Checks if price is within standard statistical bounds compared to its 50-day average."
+        help="Checks if price is within standard statistical bounds compared to its 50-day average."
     )
 
     q2.metric(
         label="Big Money Activity", 
         value="BUYING" if obv_slope_val > 0 else "SELLING", 
         delta=f"OBV Delta: {obv_slope_val:,.0f}",
-        help="Smart Money Flow: Evaluates institutional accumulation/distribution via OBV slope dynamics."
+        help="Evaluates institutional accumulation/distribution via OBV slope dynamics."
     )
 
-    # SIMPLIFIED BREAKOUT METRIC
     q3.metric(
         label="Price Speed / Stage", 
         value="RESTING / PAUSED" if squeeze_val else "MOVING FAST", 
         delta="Preparing to Jump" if squeeze_val else "Price Expanding",
-        help="tells you if the price is sitting still (resting) or currently making a fast move up/down."
+        help="Tells you if the price is sitting still (resting) or currently making a fast move up/down."
     )
 
     q4.metric(
         label="AI Next-Day Odds", 
         value=f"{prob_up_next_day:.1f}% Win Chance", 
         delta=f"Precision: {next_day_precision:.1f}%",
-        help="XGBoost model predicting next trading day upward probability."
+        help="Ensemble model (XGBoost + Random Forest) predicting next trading day upward probability."
     )
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. MULTI-HORIZON AI UPWARD ODDS FORECAST
+    # 8. MULTI-HORIZON AI FORECAST
     # -------------------------------------------------------------
-    st.subheader("🤖 AI Upward Odds Across Time Horizons")
+    st.subheader("🤖 Ensemble AI Upward Odds Across Horizons")
     
     cols = st.columns(3)
     for idx, item in enumerate(predictions_summary):
         col_idx = idx % 3
         with cols[col_idx]:
             prob_val = item['Upward Odds']
-            signal_color = "🟢 Bullish" if prob_val >= 55.0 else ("🔴 Bearish" if prob_val <= 45.0 else "🟡 Neutral")
+            signal_color = "🟢 Bullish" if prob_val >= 53.0 else ("🔴 Bearish" if prob_val <= 47.0 else "🟡 Neutral")
             st.metric(
                 label=item["Horizon"],
                 value=f"{prob_val:.1f}% Win Odds",
@@ -407,15 +402,15 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 10. FUNDAMENTALS & RISK CONTROL
+    # 10. FUNDAMENTALS & KELLY CAPITAL ALLOCATION
     # -------------------------------------------------------------
-    st.subheader("🏛️ Fundamentals & Risk Control")
+    st.subheader("🏛️ Fundamentals & Kelly Risk Sizing")
     f1, f2, f3, f4, f5 = st.columns(5)
     f1.metric("Trailing P/E", f"{info.get('trailingPE', 'N/A')}")
     f2.metric("Price-to-Book", f"{info.get('priceToBook', 'N/A')}")
     f3.metric("Automated Stop-Loss", f"₹{stop_loss:.2f}", f"{atr_multiplier}x ATR")
     f4.metric("Take-Profit Target", f"₹{take_profit:.2f}", f"RR Ratio {risk_reward_ratio}:1")
-    f5.metric("Max Share Size", f"{max_shares} Shares", f"Risk ₹{capital_allocated:,.0f}")
+    f5.metric("Kelly Max Position", f"{max_shares} Shares", f"Risk Allocation: ₹{suggested_risk_amount:,.0f}")
 
     st.markdown("---")
 
