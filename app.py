@@ -9,7 +9,7 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & COMPACT STYLING
+# PAGE CONFIGURATION & MOBILE-RESPONSIVE STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
@@ -17,46 +17,73 @@ st.markdown("""
 <style>
     /* Remove top whitespace */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.8rem !important;
         padding-bottom: 0rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
-    .metric-card {
-        background-color: #1E222D;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #2A2E39;
-    }
-    /* Compact System Verdict Banner */
-    .decision-banner {
-        padding: 8px 12px;
-        border-radius: 6px;
-        text-align: center;
+    
+    /* Responsive & Small Mobile Stock Name Header */
+    .stock-header {
         font-size: 16px;
-        font-weight: 600;
-        margin-top: 5px;
-        margin-bottom: 12px;
+        font-weight: 700;
+        color: #FFFFFF;
         line-height: 1.3;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        hyphens: auto;
     }
+    
+    .stock-ticker {
+        font-size: 13px;
+        color: #00E5FF;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .stock-meta {
+        font-size: 11px;
+        color: #90A4AE;
+        margin-top: 2px;
+        margin-bottom: 6px;
+    }
+
+    /* Ultra-Compact System Verdict Banner for Mobile */
+    .decision-banner {
+        padding: 6px 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        margin-top: 4px;
+        margin-bottom: 10px;
+        line-height: 1.2;
+    }
+    
     .decision-subtext {
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 400;
         opacity: 0.95;
         display: block;
-        margin-top: 2px;
+        margin-top: 3px;
     }
-    /* Responsive Stock Title Header */
-    .stock-header {
-        font-size: 22px;
-        font-weight: 700;
-        color: #FFFFFF;
-        white-space: normal;
-        word-wrap: break-word;
-        line-height: 1.2;
-    }
-    .stock-ticker {
-        font-size: 14px;
-        color: #90A4AE;
-        font-weight: 400;
+
+    /* Force mobile font scaling */
+    @media (max-width: 640px) {
+        .stock-header {
+            font-size: 14px !important;
+        }
+        .stock-ticker {
+            font-size: 12px !important;
+        }
+        .decision-banner {
+            font-size: 12px !important;
+            padding: 5px 8px !important;
+        }
+        .decision-subtext {
+            font-size: 10px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -182,35 +209,35 @@ else:
     if total_bullish_score >= 6 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (STRONG BUY)"
         banner_color = "#00C853"
-        action_summary = "Technical trend, money flow, and model probability are aligned with healthy valuation parameters."
+        action_summary = "Technical trend, money flow, and model probability are aligned."
     elif total_bullish_score < 4 or z_score_val > 2.2:
         action_decision = "SHORT / REDUCE (BEARISH)"
         banner_color = "#FF1744"
-        action_summary = "Stock exhibits distribution pressure or price expansion standard deviation is severely overextended."
+        action_summary = "Distribution pressure present or price expansion is overextended."
     elif total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL BIASED)"
         banner_color = "#FF9100"
-        action_summary = "Macro trend remains intact, but momentum indicators suggest holding existing shares rather than aggressive buying."
+        action_summary = "Macro trend intact; momentum suggests holding existing positions."
     else:
         action_decision = "EXIT / AVOID (NO EDGE)"
         banner_color = "#D500F9"
-        action_summary = "Conflicting signals between volume distribution and technical structure. Capital protection advised."
+        action_summary = "Conflicting signals between volume and technical structure."
 
     # -------------------------------------------------------------
-    # 1. TOP SECTION: FULL STOCK NAME & COMPACT VERDICT BANNER
+    # 1. MOBILE-READY HEADER & VERDICT BANNER
     # -------------------------------------------------------------
     st.markdown(f"""
     <div class="stock-header">
         {company_name} <span class="stock-ticker">({ticker_symbol})</span>
     </div>
-    <div style="font-size: 12px; color: #78909C; margin-bottom: 6px;">
+    <div class="stock-meta">
         Sector: {sector} | Industry: {industry}
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="decision-banner" style="background-color: {banner_color}; color: white;">
-        SYSTEM VERDICT: {action_decision}
+        VERDICT: {action_decision}
         <span class="decision-subtext">{action_summary}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -222,10 +249,10 @@ else:
     q1, q2, q3, q4 = st.columns(4)
 
     q1.metric("Price Z-Score", f"{z_score_val:+.2f} σ", 
-              "Oversold (Extreme Discount)" if z_score_val < -2 else ("Overbought" if z_score_val > 2 else "Fair Value"))
-    q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Vol Delta")
+              "Oversold" if z_score_val < -2 else ("Overbought" if z_score_val > 2 else "Fair Value"))
+    q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Delta")
     q3.metric("Volatility Squeeze", "FIRE READY" if squeeze_val else "EXPANDED", "Consolidation" if squeeze_val else "Active Trend")
-    q4.metric("XGBoost Predictive Edge", f"{prob_up:.1f}% Bullish", f"Model Acc: {accuracy:.1f}%")
+    q4.metric("XGBoost Edge", f"{prob_up:.1f}% Bullish", f"Acc: {accuracy:.1f}%")
 
     st.markdown("---")
 
@@ -258,7 +285,7 @@ else:
     # -------------------------------------------------------------
     # 5. CHARTS & STATEMENTS
     # -------------------------------------------------------------
-    tab1, tab2 = st.tabs(["📊 Price Action & Point of Control (POC)", "📜 Quarterly Financials"])
+    tab1, tab2 = st.tabs(["📊 Price Action & POC", "📜 Quarterly Financials"])
 
     with tab1:
         hist_df = df.tail(120)
@@ -280,7 +307,7 @@ else:
         fig.add_hline(y=stop_loss, line_dash="dash", line_color="#FF5252", annotation_text=f"Stop-Loss (₹{stop_loss:.2f})")
         fig.add_hline(y=take_profit, line_dash="dash", line_color="#00E676", annotation_text=f"Target (₹{take_profit:.2f})")
 
-        fig.update_layout(template="plotly_dark", height=480, xaxis_title="Date", yaxis_title="Price (₹)")
+        fig.update_layout(template="plotly_dark", height=420, xaxis_title="Date", yaxis_title="Price (₹)")
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
