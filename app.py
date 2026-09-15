@@ -3,7 +3,6 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import hashlib
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
@@ -16,7 +15,6 @@ from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 # -------------------------------------------------------------
 st.set_page_config(page_title="Apex Quant Engine - Secure", layout="wide")
 
-# Advanced Cryptographic Session & Content Security Policy Headers
 st.markdown("""
 <style>
     .block-container {
@@ -100,15 +98,13 @@ st.sidebar.header("🎯 organizational design")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 raw_input = st.sidebar.text_input("Stock Symbol:", "JPPOWER").strip().upper()
 
-# Advanced Cryptographic Input Sanitization & Integrity Validation
+# Advanced Cryptographic Input Sanitization (Token view removed)
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
-session_token = hashlib.sha256(sanitized_symbol.encode()).hexdigest()[:16].upper()
-st.sidebar.caption(f"Cryptographic Integrity Token: `{session_token}`")
 
 suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
 ticker_symbol = f"{sanitized_symbol}{suffix}" if not sanitized_symbol.endswith((".NS", ".BO")) else sanitized_symbol
 
-# Default Institutional Constants (Sliders removed per requirements)
+# Default Institutional Constants
 risk_reward_ratio = 2.0
 atr_multiplier = 1.5
 capital_allocated = 100000.0
