@@ -86,6 +86,16 @@ st.markdown("""
         margin-bottom: 10px;
         display: inline-block;
     }
+    /* Compact Custom Sizing for Health Check Metrics */
+    div[data-testid="stMetric"] label {
+        font-size: 12px !important;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        font-size: 20px !important;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricDelta"] {
+        font-size: 11px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -98,13 +108,10 @@ st.sidebar.header("🎯 organizational design")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 raw_input = st.sidebar.text_input("Stock Symbol:", "JPPOWER").strip().upper()
 
-# Advanced Cryptographic Input Sanitization (Token view removed)
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
-
 suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
 ticker_symbol = f"{sanitized_symbol}{suffix}" if not sanitized_symbol.endswith((".NS", ".BO")) else sanitized_symbol
 
-# Default Institutional Constants
 risk_reward_ratio = 2.0
 atr_multiplier = 1.5
 capital_allocated = 100000.0
@@ -165,7 +172,6 @@ def train_ensemble_model(X, y):
     avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
     return (xgb, rf), avg_precision
 
-# Load Market Data
 df, info, financials = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
@@ -345,9 +351,9 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 7. DASHBOARD HEALTH CHECKS
+    # 7. DASHBOARD HEALTH CHECKS (COMPACT TEXT SIZE)
     # -------------------------------------------------------------
-    st.subheader("⚡ Dashboard Health Checks")
+    st.markdown("##### ⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
 
     q1.metric(
