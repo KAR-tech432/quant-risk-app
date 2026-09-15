@@ -9,31 +9,29 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# PAGE CONFIGURATION & STYLING
+# PAGE CONFIGURATION & STYLING (REMOVING TOP PADDING)
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
+    /* Reduce top whitespace aggressively */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
     .metric-card {
         background-color: #1E222D;
-        padding: 15px;
+        padding: 12px;
         border-radius: 8px;
         border: 1px solid #2A2E39;
     }
     .decision-banner {
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 25px;
-    }
-    .verdict-box {
-        background-color: #131722;
         padding: 15px;
         border-radius: 8px;
-        border-left: 5px solid #00C853;
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
         margin-bottom: 15px;
     }
 </style>
@@ -55,7 +53,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# CACHED DATA FETCHING LAYER (2-YEAR DATASET)
+# CACHED DATA FETCHING LAYER
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -104,21 +102,21 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
-    # Z-Score Mean Reversion
+    # Z-Score
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
 
-    # Institutional Money Flow
+    # OBV Slope
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
-    # Volatility Squeeze Engine
+    # Volatility Squeeze
     bb = BollingerBands(df['Close'], window=20, window_dev=2)
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Machine Learning Target
+    # Target Setup
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
@@ -141,67 +139,21 @@ else:
     sma_200_val = float(df['SMA_200'].iloc[-1]) if not pd.isna(df['SMA_200'].iloc[-1]) else curr_price
     pe_ratio = info.get('trailingPE', None)
 
-    # Dynamic Risk Parameters
+    # Risk Calculations
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
     take_profit = curr_price + (risk_per_share * risk_reward_ratio)
     max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # 8-POINT MULTI-PILLAR SCORING MATRIX ENGINE
+    # SCORING ENGINE
     # -------------------------------------------------------------
-    score_breakdown = []
     total_bullish_score = 0
-
-    c1_passed = curr_price > sma_200_val
-    if c1_passed: total_bullish_score += 2
-    score_breakdown.append({
-        "Parameter": "Macro Trend Structure (200 DMA)",
-        "Lookback Window": "200 Days",
-        "Observed Metric": f"Price ₹{curr_price:.2f} > 200 DMA ₹{sma_200_val:.2f}" if c1_passed else f"Price ₹{curr_price:.2f} < 200 DMA ₹{sma_200_val:.2f}",
-        "Weight": "+2 Pts" if c1_passed else "0 Pts",
-        "Status": "✅ PASSED" if c1_passed else "❌ FAILED"
-    })
-
-    c2_passed = obv_slope_val > 0
-    if c2_passed: total_bullish_score += 2
-    score_breakdown.append({
-        "Parameter": "Smart Money Flow (OBV Slope)",
-        "Lookback Window": "10 Days",
-        "Observed Metric": f"+{obv_slope_val:,.0f} Delta (Accumulation)" if c2_passed else f"{obv_slope_val:,.0f} Delta (Distribution)",
-        "Weight": "+2 Pts" if c2_passed else "0 Pts",
-        "Status": "✅ PASSED" if c2_passed else "❌ FAILED"
-    })
-
-    c3_passed = prob_up >= 55.0
-    if c3_passed: total_bullish_score += 2
-    score_breakdown.append({
-        "Parameter": "XGBoost Machine Learning Edge",
-        "Lookback Window": "2 Years (80/20 Train-Test)",
-        "Observed Metric": f"{prob_up:.1f}% Bullish Probability",
-        "Weight": "+2 Pts" if c3_passed else "0 Pts",
-        "Status": "✅ PASSED" if c3_passed else "❌ FAILED"
-    })
-
-    c4_passed = (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0)
-    if c4_passed: total_bullish_score += 1
-    score_breakdown.append({
-        "Parameter": "Momentum Strength (RSI 14)",
-        "Lookback Window": "14 Days",
-        "Observed Metric": f"RSI @ {rsi_val:.1f} (Healthy Expansion)",
-        "Weight": "+1 Pt" if c4_passed else "0 Pts",
-        "Status": "✅ PASSED" if c4_passed else "❌ FAILED"
-    })
-
-    c5_passed = pe_ratio is not None and pe_ratio < 25.0
-    if c5_passed: total_bullish_score += 1
-    score_breakdown.append({
-        "Parameter": "Fundamental Valuation (Trailing P/E)",
-        "Lookback Window": "Trailing 12 Months",
-        "Observed Metric": f"P/E @ {pe_ratio:.2f}" if pe_ratio else "P/E Data N/A",
-        "Weight": "+1 Pt" if c5_passed else "0 Pts",
-        "Status": "✅ PASSED" if c5_passed else "❌ FAILED"
-    })
+    if curr_price > sma_200_val: total_bullish_score += 2
+    if obv_slope_val > 0: total_bullish_score += 2
+    if prob_up >= 55.0: total_bullish_score += 2
+    if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
+    if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
     if total_bullish_score >= 6 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (STRONG BUY)"
@@ -221,7 +173,7 @@ else:
         action_summary = "Conflicting signals between volume distribution and technical structure. Capital protection advised."
 
     # -------------------------------------------------------------
-    # 1. LIVE DECISION BANNER & TOP SNAPSHOT (STARTING DIRECTLY)
+    # 1. TOP SECTION: LIVE SNAPSHOT & DECISION (AT THE VERY TOP)
     # -------------------------------------------------------------
     st.markdown(f"## **{company_name}** (`{ticker_symbol}`)")
     st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
@@ -229,15 +181,31 @@ else:
     st.markdown(f"""
     <div class="decision-banner" style="background-color: {banner_color}; color: white;">
         SYSTEM VERDICT: {action_decision}<br>
-        <span style="font-size: 14px; font-weight: normal;">{action_summary}</span>
+        <span style="font-size: 13px; font-weight: normal;">{action_summary}</span>
     </div>
     """, unsafe_allow_html=True)
 
+    # -------------------------------------------------------------
+    # 2. MOVED TO TOP: MICROSTRUCTURE & SMART MONEY FLOW
+    # -------------------------------------------------------------
+    st.subheader("⚡ Microstructure & Institutional Flow")
+    q1, q2, q3, q4 = st.columns(4)
+
+    q1.metric("Price Z-Score", f"{z_score_val:+.2f} σ", 
+              "Oversold (Extreme Discount)" if z_score_val < -2 else ("Overbought" if z_score_val > 2 else "Fair Value"))
+    q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Vol Delta")
+    q3.metric("Volatility Squeeze", "FIRE READY (Consolidation)" if squeeze_val else "EXPANDED (Active Trend)")
+    q4.metric("XGBoost Predictive Edge", f"{prob_up:.1f}% Bullish", f"Model Acc: {accuracy:.1f}%")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 3. LIVE PRICE SNAPSHOT
+    # -------------------------------------------------------------
     h1, h2, h3, h4, h5 = st.columns(5)
-    h1.metric("Live Market Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
+    h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
     h2.metric("Day High", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f}")
     h3.metric("Day Low", f"₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
-    
     mcap = info.get('marketCap', 0)
     h4.metric("Market Cap", f"₹{mcap/1e7:,.0f} Cr" if mcap else "N/A")
     h5.metric("Volume Today", f"{int(info.get('volume', df['Volume'].iloc[-1])):,.0f}")
@@ -245,92 +213,31 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 2. DIAGNOSTICS & VERDICT AUDIT BREAKDOWN
+    # 4. FUNDAMENTALS & RISK CONTROL
     # -------------------------------------------------------------
-    st.subheader("🔍 Verdict Audit: Technical & Parameter Breakdown")
-    st.caption(f"Score Achieved: **{total_bullish_score} / 8 Points** | Evaluated Dataset: **{len(df)} Days (2 Years)**")
-
-    audit_df = pd.DataFrame(score_breakdown)
-    st.table(audit_df)
-
-    d1, d2, d3, d4 = st.columns(4)
-    d1.metric("Dataset Lookback", f"{len(df)} Bars", "Daily Candles (2Y)")
-    d2.metric("Train/Test Split", f"{int(len(clean_df)*0.8)} / {int(len(clean_df)*0.2)} Bars", "80% Train | 20% Test")
-    d3.metric("Point of Control (POC)", "90-Day Window", "Execution Focus")
-    d4.metric("Mean Reversion (Z)", f"{z_score_val:+.2f} σ", "< +1.8 σ Safety Limit Passed")
-
-    st.markdown("---")
-
-    # -------------------------------------------------------------
-    # 3. FUNDAMENTAL HEALTH & VALUATION METRICS
-    # -------------------------------------------------------------
-    st.subheader("🏛️ Fundamental Ratios & Valuation")
-    f1, f2, f3, f4, f5, f6 = st.columns(6)
+    st.subheader("🏛️ Fundamentals & Risk Control")
+    f1, f2, f3, f4, f5 = st.columns(5)
     f1.metric("Trailing P/E", f"{info.get('trailingPE', 'N/A')}")
-    f2.metric("Forward P/E", f"{info.get('forwardPE', 'N/A')}")
-    f3.metric("Price-to-Book (P/B)", f"{info.get('priceToBook', 'N/A')}")
-    f4.metric("ROE", f"{info.get('returnOnEquity', 0)*100:.2f}%" if info.get('returnOnEquity') else "N/A")
-    f5.metric("Debt-to-Equity", f"{info.get('debtToEquity', 'N/A')}")
-    f6.metric("Dividend Yield", f"{info.get('dividendYield', 0)*100:.2f}%" if info.get('dividendYield') else "N/A")
-
-    high_52 = info.get('fiftyTwoWeekHigh', df['High'].max())
-    low_52 = info.get('fiftyTwoWeekLow', df['Low'].min())
-    range_span = high_52 - low_52
-    position_pct = ((curr_price - low_52) / range_span) * 100 if range_span > 0 else 50
-
-    st.markdown("**52-Week Range Trajectory**")
-    st.progress(min(max(int(position_pct), 0), 100))
-    st.caption(f"**52W Low:** ₹{low_52:.2f}  |  **Current:** ₹{curr_price:.2f} ({position_pct:.1f}% off Low)  |  **52W High:** ₹{high_52:.2f}")
+    f2.metric("Price-to-Book", f"{info.get('priceToBook', 'N/A')}")
+    f3.metric("Automated Stop-Loss", f"₹{stop_loss:.2f}", f"{atr_multiplier}x ATR")
+    f4.metric("Take-Profit Target", f"₹{take_profit:.2f}", f"RR Ratio {risk_reward_ratio}:1")
+    f5.metric("Max Share Size", f"{max_shares} Shares", f"Risk ₹{capital_allocated:,.0f}")
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 4. MICROSTRUCTURE & INSTITUTIONAL MONEY FLOW
+    # 5. INTERACTIVE CHARTS & STATEMENTS
     # -------------------------------------------------------------
-    st.subheader("⚡ Microstructure & Institutional Flow")
-    q1, q2, q3, q4 = st.columns(4)
-
-    q1.metric("Price Z-Score", f"{z_score_val:+.2f} σ", 
-              "Overbought (> +2)" if z_score_val > 2 else ("Oversold (< -2)" if z_score_val < -2 else "Fair Value"))
-    q2.metric("Smart Money Flow", "ACCUMULATION" if obv_slope_val > 0 else "DISTRIBUTION", f"{obv_slope_val:,.0f} Vol Delta")
-    q3.metric("Volatility Squeeze", "FIRE READY" if squeeze_val else "EXPANDED", "Consolidation" if squeeze_val else "Active Trend")
-    q4.metric("XGBoost Predictive Edge", f"{prob_up:.1f}% Bullish", f"Model Acc: {accuracy:.1f}%")
-
-    st.markdown("---")
-
-    # -------------------------------------------------------------
-    # 5. RISK CONTROLS & POSITION SIZING
-    # -------------------------------------------------------------
-    st.subheader("🛡️ Risk Control & Sizing Matrix")
-    c1, c2, c3 = st.columns(3)
-    
-    with c1:
-        st.error(f"**Automated Stop-Loss:** ₹{stop_loss:.2f}")
-        st.caption(f"Risk per share: ₹{risk_per_share:.2f} ({atr_multiplier}x ATR)")
-    with c2:
-        st.success(f"**Take-Profit Target:** ₹{take_profit:.2f}")
-        st.caption(f"Reward per share: ₹{take_profit - curr_price:.2f}")
-    with c3:
-        st.info(f"**Position Size Limits:** {max_shares} Shares")
-        st.caption(f"Based on ₹{capital_allocated:,.0f} capital risk allocation")
-
-    st.markdown("---")
-
-    # -------------------------------------------------------------
-    # 6. INTERACTIVE CHARTS & FINANCIAL STATEMENTS TABS
-    # -------------------------------------------------------------
-    tab1, tab2, tab3 = st.tabs(["📊 Price Action & Point of Control (POC)", "🏦 Shareholding Pattern", "📜 Quarterly Financials"])
+    tab1, tab2 = st.tabs(["📊 Price Action & Point of Control (POC)", "📜 Quarterly Financials"])
 
     with tab1:
         hist_df = df.tail(120)
-        
         price_bins = pd.cut(hist_df['Close'], bins=15)
         volume_profile = hist_df.groupby(price_bins, observed=False)['Volume'].sum()
         poc_bin = volume_profile.idxmax()
         poc_price = (poc_bin.left + poc_bin.right) / 2
 
         fig = go.Figure()
-
         fig.add_trace(go.Candlestick(
             x=hist_df.index, open=hist_df['Open'], high=hist_df['High'],
             low=hist_df['Low'], close=hist_df['Close'], name="Price"
@@ -339,22 +246,14 @@ else:
         fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_50'], mode='lines', name='SMA 50', line=dict(color='#2196F3', width=1)))
         fig.add_trace(go.Scatter(x=hist_df.index, y=hist_df['SMA_200'], mode='lines', name='SMA 200', line=dict(color='#E91E63', width=1.5)))
 
-        fig.add_hline(y=poc_price, line_dash="solid", line_color="#E040FB", line_width=2, annotation_text=f"Point of Control (POC): ₹{poc_price:.2f}")
+        fig.add_hline(y=poc_price, line_dash="solid", line_color="#E040FB", line_width=2, annotation_text=f"POC: ₹{poc_price:.2f}")
         fig.add_hline(y=stop_loss, line_dash="dash", line_color="#FF5252", annotation_text=f"Stop-Loss (₹{stop_loss:.2f})")
-        fig.add_hline(y=take_profit, line_dash="dash", line_color="#00E676", annotation_text=f"Take-Profit (₹{take_profit:.2f})")
+        fig.add_hline(y=take_profit, line_dash="dash", line_color="#00E676", annotation_text=f"Target (₹{take_profit:.2f})")
 
-        fig.update_layout(template="plotly_dark", height=550, xaxis_title="Date", yaxis_title="Price (₹)")
+        fig.update_layout(template="plotly_dark", height=500, xaxis_title="Date", yaxis_title="Price (₹)")
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
-        st.subheader("Shareholding Pattern")
-        if isinstance(major_holders, pd.DataFrame) and not major_holders.empty:
-            st.dataframe(major_holders, use_container_width=True)
-        else:
-            st.info("Major shareholding breakdown data not available for this ticker.")
-
-    with tab3:
-        st.subheader("Quarterly Financial Statements")
         if isinstance(financials, pd.DataFrame) and not financials.empty:
             st.dataframe(financials, use_container_width=True)
         else:
