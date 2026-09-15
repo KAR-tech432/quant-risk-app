@@ -149,7 +149,7 @@ with col4:
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 5. FORECAST MATRIX (RENAMED & SIMPLIFIED TABLE COLUMNS)
+# 5. FORECAST MATRIX (CLEAN TABLE WITHOUT MATHEMATICAL MODEL BASIS)
 # -------------------------------------------------------------
 st.subheader("🔮 Forecast")
 
@@ -158,49 +158,41 @@ prediction_data = [
         "Horizon": "Today (Remaining Session)",
         "Target Price Range": "₹15.55 - ₹15.75",
         "Expected Return": "-0.30% to +0.60%",
-        "Mathematical Model Basis": "Intraday VWAP & Pivot S1/PP Bounds",
     },
     {
         "Horizon": "Next Trading Day",
         "Target Price Range": "₹15.40 - ₹15.80",
         "Expected Return": "-1.00% to +0.50%",
-        "Mathematical Model Basis": "Exponential Moving Average (EMA) Cross + ATR",
     },
     {
         "Horizon": "Weekly (7 Days)",
         "Target Price Range": "₹15.00 - ₹16.10",
         "Expected Return": "-2.50% to +2.00%",
-        "Mathematical Model Basis": "Bollinger Band Width & Mean Reversion Formula",
     },
     {
         "Horizon": "10 Days",
         "Target Price Range": "₹14.90 - ₹16.30",
         "Expected Return": "-3.00% to +3.50%",
-        "Mathematical Model Basis": "Fibonacci Retracement (61.8% Level Interaction)",
     },
     {
         "Horizon": "15 Days",
         "Target Price Range": "₹15.20 - ₹16.80",
         "Expected Return": "-1.50% to +5.00%",
-        "Mathematical Model Basis": "MACD Histogram Convergence & Volume Weighted Flow",
     },
     {
         "Horizon": "1 Month (30 Days)",
         "Target Price Range": "₹15.00 - ₹17.50",
         "Expected Return": "-2.00% to +10.00%",
-        "Mathematical Model Basis": "50-Day Simple Moving Average (SMA) Convergence",
     },
     {
         "Horizon": "2 Months (60 Days)",
         "Target Price Range": "₹14.50 - ₹18.20",
         "Expected Return": "-5.00% to +15.00%",
-        "Mathematical Model Basis": "Long-Term Hurst Exponent & Momentum Oscillator",
     },
     {
         "Horizon": "3 Months (90 Days)",
         "Target Price Range": "₹16.00 - ₹20.00",
         "Expected Return": "+2.00% to +25.00%",
-        "Mathematical Model Basis": "Quarterly Earnings Projection Factor + P/E Re-rating Model",
     },
 ]
 
