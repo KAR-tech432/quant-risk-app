@@ -15,7 +15,6 @@ st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Reset padding for optimal top alignment */
     .block-container {
         padding-top: 1.8rem !important;
         padding-bottom: 0rem !important;
@@ -23,7 +22,6 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
     
-    /* High-Contrast Terminal Header Card */
     .terminal-card {
         background-color: #161922;
         border: 1px solid #33394B;
@@ -58,7 +56,6 @@ st.markdown("""
         margin-top: 4px;
     }
 
-    /* Solid High-Visibility Verdict Badge */
     .verdict-box-solid {
         border-radius: 6px;
         padding: 10px 14px;
@@ -68,6 +65,7 @@ st.markdown("""
         justify-content: center;
         height: 100%;
         box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        transition: background-color 0.3s ease;
     }
     
     .verdict-title {
@@ -91,9 +89,6 @@ st.markdown("""
         .verdict-box-solid {
             text-align: left;
             margin-top: 6px;
-        }
-        .stock-title-main {
-            font-size: 14px !important;
         }
     }
 </style>
@@ -167,30 +162,25 @@ else:
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     df['ATR'] = AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
     
-    # Z-Score
     df['Rolling_Mean'] = df['Close'].rolling(50).mean()
     df['Rolling_Std'] = df['Close'].rolling(50).std()
     df['Z_Score'] = (df['Close'] - df['Rolling_Mean']) / df['Rolling_Std']
 
-    # OBV Slope
     obv = (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     df['OBV_Slope'] = obv.diff(10)
 
-    # Volatility Squeeze
     bb = BollingerBands(df['Close'], window=20, window_dev=2)
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Target Setup
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
-    # Model Execution
     model, accuracy, features = train_xgboost(clean_df)
     latest_features = clean_df[features].tail(1)
     prob_up = model.predict_proba(latest_features)[0][1] * 100
 
-    # Key Values
+    # Live Price Metrics
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     price_change = curr_price - prev_close
@@ -204,14 +194,13 @@ else:
     sma_200_val = float(df['SMA_200'].iloc[-1]) if not pd.isna(df['SMA_200'].iloc[-1]) else curr_price
     pe_ratio = info.get('trailingPE', None)
 
-    # Risk Calculations
     stop_loss = curr_price - (atr_val * atr_multiplier)
     risk_per_share = curr_price - stop_loss
     take_profit = curr_price + (risk_per_share * risk_reward_ratio)
     max_shares = int(capital_allocated / risk_per_share) if risk_per_share > 0 else 0
 
     # -------------------------------------------------------------
-    # HIGH-VISIBILITY SCORING ENGINE & BADGE COLORS
+    # DYNAMIC MARKET-DRIVEN VERDICT SCORING ENGINE
     # -------------------------------------------------------------
     total_bullish_score = 0
     if curr_price > sma_200_val: total_bullish_score += 2
@@ -220,25 +209,26 @@ else:
     if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
-    if total_bullish_score >= 6 and z_score_val < 1.8:
+    # DYNAMIC COLOR ASSIGNMENT BASED ON LIVE MARKET ACTION
+    if pct_change > 0.0 and total_bullish_score >= 5 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
-        banner_bg = "#00C853"  # Vibrant Green
-        action_summary = "Technical trend, money flow, and model probability are aligned."
-    elif total_bullish_score < 4 or z_score_val > 2.2:
+        banner_bg = "#00C853"  # Vibrant Green: Live Gain + Bullish Signal
+        action_summary = f"Stock is up {pct_change:+.2f}% today with strong institutional support."
+    elif pct_change < 0.0 or total_bullish_score < 4 or z_score_val > 2.0:
         action_decision = "SHORT / REDUCE"
-        banner_bg = "#D50000"  # High-Visibility Red
-        action_summary = "Distribution pressure present or price expansion is overextended."
-    elif total_bullish_score >= 4:
+        banner_bg = "#D50000"  # Vibrant Red: Live Drop or Bearish Signal
+        action_summary = f"Stock trading down {pct_change:+.2f}% today under distribution pressure."
+    elif pct_change == 0.0 or total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
-        banner_bg = "#FF6D00"  # Vibrant Orange
-        action_summary = "Macro trend intact; momentum suggests holding existing positions."
+        banner_bg = "#FF6D00"  # Orange: Flat Market Conditions
+        action_summary = "Stock trading flat. Awaiting market trend direction."
     else:
         action_decision = "EXIT / AVOID"
-        banner_bg = "#AA00FF"  # High-Contrast Purple
-        action_summary = "Conflicting signals between volume and technical structure."
+        banner_bg = "#AA00FF"  # High-Contrast Purple: High Volatility Squeeze
+        action_summary = "Conflicting volume momentum; wait for confirmation."
 
     # -------------------------------------------------------------
-    # 1. SIDE-BY-SIDE HIGH-DAYLIGHT VISIBILITY HEADER
+    # 1. SIDE-BY-SIDE DYNAMIC TERMINAL HEADER
     # -------------------------------------------------------------
     head_col1, head_col2 = st.columns([1.6, 1])
 
