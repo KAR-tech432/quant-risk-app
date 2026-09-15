@@ -15,51 +15,23 @@ st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Compact Top Margins for Mobile */
+    /* Compact Margins for Mobile & Desktop */
     .block-container {
-        padding-top: 0.8rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 0rem !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
     }
     
-    /* Responsive Stock Title Container */
-    .stock-title-box {
-        background-color: #1E222D;
-        padding: 10px 14px;
-        border-radius: 6px;
-        border-left: 4px solid #00E5FF;
-        margin-bottom: 8px;
-    }
-    
-    .stock-title-text {
-        font-size: 16px;
-        font-weight: 700;
-        color: #FFFFFF;
-        line-height: 1.3;
-        word-break: break-word;
-    }
-    
-    .stock-symbol-tag {
-        color: #00E5FF;
-        font-weight: 600;
-    }
-
-    .stock-sub-meta {
-        font-size: 11px;
-        color: #90A4AE;
-        margin-top: 3px;
-    }
-
-    /* Ultra-Compact System Verdict Banner */
+    /* Compact Mobile-Friendly Verdict Banner */
     .decision-banner {
         padding: 6px 10px;
-        border-radius: 5px;
+        border-radius: 6px;
         text-align: center;
         font-size: 13px;
         font-weight: 700;
-        margin-top: 4px;
-        margin-bottom: 10px;
+        margin-top: 6px;
+        margin-bottom: 12px;
         line-height: 1.2;
     }
     
@@ -69,15 +41,6 @@ st.markdown("""
         opacity: 0.95;
         display: block;
         margin-top: 3px;
-    }
-
-    @media (max-width: 640px) {
-        .stock-title-text {
-            font-size: 14px !important;
-        }
-        .decision-banner {
-            font-size: 12px !important;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -136,7 +99,7 @@ df, info, financials = fetch_stock_master(ticker_symbol)
 if df is None or df.empty:
     st.error(f"Could not load market data for **{ticker_symbol}**. Verify symbol or exchange configuration.")
 else:
-    # --- ROBUST STOCK NAME EXTRACTION ---
+    # --- GUARANTEED STOCK NAME FETCHING ---
     company_name = info.get('longName') or info.get('shortName') or ticker_symbol
     sector = info.get('sector', 'N/A')
     industry = info.get('industry', 'N/A')
@@ -165,7 +128,7 @@ else:
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Machine Learning Target Setup
+    # Target Setup
     df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
@@ -174,7 +137,7 @@ else:
     latest_features = clean_df[features].tail(1)
     prob_up = model.predict_proba(latest_features)[0][1] * 100
 
-    # Key Snapshot Values
+    # Key Values
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     price_change = curr_price - prev_close
@@ -222,18 +185,10 @@ else:
         action_summary = "Conflicting signals between volume and technical structure."
 
     # -------------------------------------------------------------
-    # 1. GUARANTEED STOCK NAME HEADER (MOBILE-FRIENDLY)
+    # 1. NATIVE STREAMLIT HEADER (ALWAYS VISIBLE & MOBILE RESPONSIVE)
     # -------------------------------------------------------------
-    st.markdown(f"""
-    <div class="stock-title-box">
-        <div class="stock-title-text">
-            {company_name} <span class="stock-symbol-tag">({ticker_symbol})</span>
-        </div>
-        <div class="stock-sub-meta">
-            Sector: {sector} | Industry: {industry}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader(f"📈 {company_name} ({ticker_symbol})")
+    st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
 
     st.markdown(f"""
     <div class="decision-banner" style="background-color: {banner_color}; color: white;">
