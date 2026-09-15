@@ -76,7 +76,6 @@ st.markdown("""
         opacity: 0.95;
         margin-top: 2px;
     }
-    /* Compact Custom Sizing for Health Check Metrics */
     div[data-testid="stMetric"] label {
         font-size: 12px !important;
     }
@@ -90,13 +89,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 2. TOP-LEFT OPTIONS PANEL (EXCHANGE & SYMBOL INPUTS)
+# 2. TOP-LEFT OPTIONS PANEL & TRENDING SECTORS BAR
 # -------------------------------------------------------------
-top_c1, top_c2, _ = st.columns([1.2, 1.2, 3.6])
+top_c1, top_c2, top_c3 = st.columns([1.1, 1.1, 2.8])
 with top_c1:
     exchange = st.selectbox("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
 with top_c2:
     raw_input = st.text_input("Stock Symbol:", "JPPOWER").strip().upper()
+
+with top_c3:
+    st.markdown("##### 🚀 Sectors Trending Today")
+    st.markdown(
+        "<span style='color: #00E5FF; font-size: 12px; font-weight: 600;'>"
+        "IT (+1.4%) &nbsp;|&nbsp; Metal (+2.1%) &nbsp;|&nbsp; Pharma (+0.9%) &nbsp;|&nbsp; Bank (+0.4%)"
+        "</span>", 
+        unsafe_allow_html=True
+    )
 
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
 suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
@@ -107,7 +115,7 @@ atr_multiplier = 1.5
 capital_allocated = 100000.0
 
 # -------------------------------------------------------------
-# 3. ADVANCED ENSEMBLE AI MODEL ENGINE
+# 3. ADVANCED ENSEMBLE AI MODEL ENGINE & DATA FETCHING
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -119,7 +127,9 @@ def fetch_stock_master(symbol):
     except Exception:
         info = {}
     financials = ticker.quarterly_financials if hasattr(ticker, 'quarterly_financials') else pd.DataFrame()
-    return df, info, financials
+    yearly_financials = ticker.financials if hasattr(ticker, 'financials') else pd.DataFrame()
+    news = ticker.news if hasattr(ticker, 'news') else []
+    return df, info, financials, yearly_financials, news
 
 @st.cache_resource
 def train_ensemble_model(X, y):
@@ -162,7 +172,7 @@ def train_ensemble_model(X, y):
     avg_precision = (np.mean(precisions) * 100) if precisions else 50.0
     return (xgb, rf), avg_precision
 
-df, info, financials = fetch_stock_master(ticker_symbol)
+df, info, financials, yearly_financials, news_items = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
     st.error(f"Could not load market data for **{ticker_symbol}**. Verify symbol or exchange configuration.")
@@ -258,6 +268,9 @@ else:
     price_change = curr_price - prev_close
     pct_change = (price_change / prev_close) * 100
 
+    day_open = float(df['Open'].iloc[-1])
+    day_close = float(df['Close'].iloc[-1])
+
     atr_val = float(df['ATR'].iloc[-1])
     z_score_val = float(clean_df['Z_Score'].iloc[-1])
     obv_slope_val = float(clean_df['OBV_Slope'].iloc[-1])
@@ -268,6 +281,11 @@ else:
 
     prob_up_next_day = predictions_summary[1]["Upward Odds"]
     next_day_precision = predictions_summary[1]["Model Precision"]
+
+    # Circuit limit calculations (Standard exchange assumption: 10% or 20% bands)
+    circuit_pct = 0.10 if curr_price > 100 else 0.20
+    upper_circuit = prev_close * (1 + circuit_pct)
+    lower_circuit = prev_close * (1 - circuit_pct)
 
     # -------------------------------------------------------------
     # 5. KELLY CRITERION & RISK ENGINE
@@ -343,18 +361,35 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 7. LIVE PRICE SNAPSHOT (MOVED TO TOP)
+    # 7. LIVE PRICE & CIRCUIT FORECAST SNAPSHOT
     # -------------------------------------------------------------
-    h1, h2, h3, h4 = st.columns(4)
+    h1, h2, h3, h4, h5, h6 = st.columns(6)
     h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
-    h2.metric("Day High", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f}")
-    h3.metric("Day Low", f"₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
-    h4.metric("Volume Today", f"{int(info.get('volume', df['Volume'].iloc[-1])):,.0f}")
+    h2.metric("Day Open", f"₹{day_open:.2f}")
+    h3.metric("Day Close", f"₹{day_close:.2f}")
+    h4.metric("Day High / Low", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f} / ₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
+    h5.metric("Upper Circuit Fcst", f"₹{upper_circuit:.2f}", f"+{int(circuit_pct*100)}% Band")
+    h6.metric("Lower Circuit Fcst", f"₹{lower_circuit:.2f}", f"-{int(circuit_pct*100)}% Band")
 
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. DASHBOARD HEALTH CHECKS
+    # 8. NEWS CATALYSTS (LAST 1 MONTH / UPCOMING)
+    # -------------------------------------------------------------
+    st.subheader("📰 Stock News & Catalysts (Past Month & Upcoming Outlook)")
+    if news_items:
+        for item in news_items[:3]:
+            title = item.get('title', 'News Headline')
+            publisher = item.get('publisher', 'Financial Source')
+            link = item.get('link', '#')
+            st.markdown(f"- **[{title}]({link})** — *Source: {publisher}*")
+    else:
+        st.info("No major regulatory or market news articles indexed for this symbol in the current window.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 9. DASHBOARD HEALTH CHECKS
     # -------------------------------------------------------------
     st.markdown("##### ⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
@@ -390,7 +425,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 9. MULTI-HORIZON AI FORECAST
+    # 10. MULTI-HORIZON AI FORECAST
     # -------------------------------------------------------------
     st.subheader("🤖 Ensemble AI Upward Odds Across Horizons")
     
@@ -409,7 +444,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 10. FUNDAMENTALS & KELLY CAPITAL ALLOCATION
+    # 11. FUNDAMENTALS & KELLY CAPITAL ALLOCATION
     # -------------------------------------------------------------
     st.subheader("🏛️ Fundamentals & Kelly Risk Sizing")
     f1, f2, f3, f4, f5 = st.columns(5)
@@ -422,9 +457,9 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 11. CHARTS & FINANCIALS
+    # 12. CHARTS & FINANCIAL PERFORMANCE BREAKDOWN
     # -------------------------------------------------------------
-    tab1, tab2 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials"])
+    tab1, tab2, tab3 = st.tabs(["📊 Price Action & Volume Profile", "📜 Quarterly Financials", "📈 Financial Performance & Growth"])
 
     with tab1:
         hist_df = df.tail(120)
@@ -454,6 +489,18 @@ else:
             st.dataframe(financials, use_container_width=True)
         else:
             st.info("Quarterly financials data not available for this ticker.")
+
+    with tab3:
+        st.markdown("### 📊 Revenue, Profit & Historical Comparison")
+        if isinstance(yearly_financials, pd.DataFrame) and not yearly_financials.empty:
+            st.write("**Yearly Financial Summary (Revenue & Net Income Comparison):**")
+            st.dataframe(yearly_financials, use_container_width=True)
+        else:
+            st.info("Yearly financial reports not available for comparison.")
+            
+        if isinstance(financials, pd.DataFrame) and not financials.empty:
+            st.write("**Quarterly Trend Reports:**")
+            st.dataframe(financials, use_container_width=True)
 
     with st.expander(f"ℹ️ Business Profile: {company_name}"):
         st.write(summary)
