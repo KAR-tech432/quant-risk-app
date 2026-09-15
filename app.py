@@ -351,7 +351,7 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 7. DASHBOARD HEALTH CHECKS (COMPACT TEXT SIZE)
+    # 7. DASHBOARD HEALTH CHECKS
     # -------------------------------------------------------------
     st.markdown("##### ⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
@@ -379,7 +379,7 @@ else:
 
     q4.metric(
         label="AI Next-Day Odds", 
-        value=f"{prob_up_next_day:.1f}% Win Chance", 
+        value=f"{prob_up_next_day:.1f}%", 
         delta=f"Precision: {next_day_precision:.1f}%",
         help="Ensemble model (XGBoost + Random Forest) predicting next trading day upward probability."
     )
@@ -399,7 +399,7 @@ else:
             signal_color = "🟢 Bullish" if prob_val >= 53.0 else ("🔴 Bearish" if prob_val <= 47.0 else "🟡 Neutral")
             st.metric(
                 label=item["Horizon"],
-                value=f"{prob_val:.1f}% Win Odds",
+                value=f"{prob_val:.1f}%",
                 delta=f"{signal_color} (Precision: {item['Model Precision']:.1f}%)"
             )
 
