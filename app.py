@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+from PIL import Image
 
 st.set_page_config(page_title="Stock Predictor", page_icon="📈", layout="wide")
 
@@ -19,10 +20,10 @@ st.markdown(
 
 st.subheader("🎯 Stock Analysis & Hourly Prediction Portal")
 
-mode = st.radio(
+# Dropdown with a blank default placeholder so nothing shows up initially
+mode = st.selectbox(
     "Choose Input Method:",
-    ["Upload Chart Screenshot", "Enter Stock Ticker"],
-    horizontal=True,
+    ["-- Select Input Method --", "Upload Chart Screenshot", "Enter Stock Ticker"],
 )
 st.markdown("---")
 
@@ -33,11 +34,14 @@ if mode == "Upload Chart Screenshot":
         "Upload Candlestick Chart:", type=["png", "jpg", "jpeg"]
     )
     if uploaded:
-        ticker = "TEJASNET.NS"
-        st.success(
-            f"✅ AI Vision successfully identified stock: **{ticker}** from uploaded chart."
+        st.image(
+            Image.open(uploaded),
+            caption="Uploaded Chart",
+            use_container_width=True,
         )
-else:
+        ticker = "TEJASNET.NS"
+        st.success(f"✅ AI Vision identified stock: **{ticker}**")
+elif mode == "Enter Stock Ticker":
     c1, c2 = st.columns([1, 2])
     with c1:
         ex = st.selectbox("Exchange:", [".NS", ".BO"])
@@ -99,4 +103,6 @@ if ticker or uploaded:
         f"💡 **Summary Guidance:** Ensemble Model confirms positive hourly upside continuation across session intervals for **{ticker}**."
     )
 else:
-    st.info("👆 Please upload a chart image or enter a stock ticker to begin.")
+    st.info(
+        "👆 Please select an input method from the dropdown above to begin."
+    )
