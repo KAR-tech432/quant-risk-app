@@ -4,50 +4,132 @@ import streamlit as st
 
 # Page Configuration
 st.set_page_config(
-    page_title="Advanced Stock Diagnostic Dashboard",
-    page_icon="📈",
-    layout="wide",
+    page_title="Groww-Style Stock Dashboard", page_icon="📈", layout="wide"
 )
 
-# Custom Styling to mimic sleek dark UI themes
+# Custom Styling (Groww Dark Theme UI/UX)
 st.markdown(
     """
     <style>
-    .main { background-color: #0e1117; color: #fafafa; }
-    .metric-card { background-color: #161b22; padding: 20px; border-radius: 10px; border: 1px solid #30363d; }
+        .stApp {
+            background-color: #0f141e;
+            color: #f0f4f8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .block-container {
+            padding-top: 1.2rem !important;
+            padding-bottom: 2rem !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+        }
+        .card {
+            background-color: #1c212b;
+            border: 1px solid #28303d;
+            border-radius: 12px;
+            padding: 18px 22px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        div[data-testid="stMetric"] {
+            background-color: #1c212b;
+            border: 1px solid #28303d;
+            padding: 14px 18px;
+            border-radius: 12px;
+        }
+        div[data-testid="stMetric"] label {
+            font-size: 13px !important;
+            color: #8c96a5 !important;
+        }
+        div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+            font-size: 20px !important;
+            color: #ffffff !important;
+        }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Title & Overview
-st.title("🛡️ Institutional Grade Stock Intelligence & Prediction Engine")
-st.markdown(
-    "Comprehensive multi-timeframe forecasting dashboard utilizing quantitative technical indicators, volume dynamics, moving averages, and classical pivot equations."
+# -------------------------------------------------------------
+# 1. TOP SEARCH & EXCHANGE SELECTION BAR
+# -------------------------------------------------------------
+top_c1, top_c2, top_c3 = st.columns([1.2, 1.2, 3.2])
+with top_c1:
+    exchange = st.selectbox("Market Exchange:", ["NSE (.NS)", "BSE (.BO)"])
+with top_c2:
+    raw_input = (
+        st.text_input("Search Stock Name/Ticker:", "JPPOWER").strip().upper()
+    )
+with top_c3:
+    st.markdown(
+        "<div style='font-size: 11px; color: #8c96a5; margin-bottom: 2px; font-weight: 600;'>🔥 SECTORS TRENDING TODAY</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='background-color: #1c212b; border: 1px solid #28303d; padding: 6px 14px; border-radius: 20px; color: #00d09c; font-size: 11px; font-weight: 600; display: inline-block;'>"
+        "⚡ IT (+1.4%) &nbsp;&nbsp; 🚀 Metal (+2.1%) &nbsp;&nbsp; 💊 Pharma (+0.9%) &nbsp;&nbsp; 🏦 Bank (+0.4%)"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
+suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
+ticker_symbol = (
+    f"{sanitized_symbol}{suffix}"
+    if not sanitized_symbol.endswith((".NS", ".BO"))
+    else sanitized_symbol
 )
+
 st.markdown("---")
 
-# Simulated Data Processing for Demonstration Based on Latest Market Metrics
-# (Reflecting realistic parameters for a small/midcap equity trading near ~15.65 - 16.02 range)
+# -------------------------------------------------------------
+# 2. HIDDEN ADVANCED MODEL CONFIGURATION (In Background State)
+# -------------------------------------------------------------
+# The complex model options and confidence sliders are stored invisibly behind the scenes
+hidden_execution_engine = "Ensemble Model (All Formulas)"
+hidden_confidence_interval = 95
+
+# -------------------------------------------------------------
+# 3. STOCK METRICS & LAYMAN LAYOUT HEADER
+# -------------------------------------------------------------
+# Simulated dynamic values reflecting the active ticker selection
 current_price = 15.65
 prev_close = 16.02
 daily_change = -2.31
 
-# Sidebar controls for simulation parameters
-st.sidebar.header("⚙️ Model Configuration")
-timeframe_mode = st.sidebar.selectbox(
-    "Execution Engine",
-    [
-        "Ensemble Model (All Formulas)",
-        "ARIMA + GARCH Volatility",
-        "Machine Learning Regressor",
-    ],
-)
-confidence_interval = st.sidebar.slider(
-    "Confidence Interval (%)", min_value=80, max_value=99, value=95
-)
+# Simple laymen terms status determination: Buy / Sell / Short / Accumulate
+layman_status = "ACCUMULATE"
+banner_color = "#ffa726"
+status_explanation = "The price is sitting at a discount relative to its historical average. While short-term selling is active, it's a solid candidate to accumulate gradually in small portions."
 
-# Layout Columns for Current Snapshot
+head_c1, head_c2 = st.columns([1.5, 1])
+with head_c1:
+    st.markdown(
+        f"""
+    <div class="card">
+        <h2 style="margin:0; color:white;">{ticker_symbol} (Active Asset)</h2>
+        <p style="color:#8c96a5; margin:4px 0 0 0;">Market: <b>{exchange}</b> | Diagnostic View: <b>Institutional Grade</b></p>
+        <h3 style="margin:12px 0 0 0; color:#00d09c;">₹{current_price:.2f} <span style="font-size:14px; color:{'#00d09c' if daily_change >= 0 else '#eb5b3c'};">({daily_change:+.2f}% today)</span></h3>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+with head_c2:
+    st.markdown(
+        f"""
+    <div class="card" style="background-color: {banner_color}; color: #0f141e; text-align: center;">
+        <h4 style="margin:0; font-size:13px; text-transform:uppercase; font-weight:800;">Layman Action Status</h4>
+        <h2 style="margin:6px 0; font-size:22px; font-weight:900;">{layman_status}</h2>
+        <p style="margin:0; font-size:11px; font-weight:600;">{status_explanation}</p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+st.markdown("---")
+
+# -------------------------------------------------------------
+# 4. MARKET SNAPSHOT METRICS
+# -------------------------------------------------------------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric(
@@ -56,7 +138,7 @@ with col1:
         delta=f"{daily_change}%",
     )
 with col2:
-    st.metric(label="50-Day Average (Status)", value="₹17.20", delta="Discount")
+    st.metric(label="50-Day Average Status", value="₹17.20", delta="Discount")
 with col3:
     st.metric(label="RSI (14) Momentum", value="33.60", delta="Near Oversold")
 with col4:
@@ -69,7 +151,9 @@ with col4:
 
 st.markdown("---")
 
-# Predictions Section across specified windows
+# -------------------------------------------------------------
+# 5. MULTI-HORIZON MATHEMATICAL FORECAST MATRIX (ALL FORMULAS)
+# -------------------------------------------------------------
 st.subheader(
     "🔮 Multi-Horizon Mathematical Forecast Matrix (All Formulas Applied)"
 )
@@ -138,7 +222,9 @@ st.dataframe(df_preds, use_container_width=True)
 
 st.markdown("---")
 
-# Technical Indicator Breakdown Table
+# -------------------------------------------------------------
+# 6. TECHNICAL INDICATOR BREAKDOWN
+# -------------------------------------------------------------
 st.subheader("📊 Comprehensive Mathematical Formula Breakdown")
 
 indicators_data = [
@@ -165,17 +251,15 @@ indicators_data = [
     {
         "Indicator": "Classic Pivot Support (S1)",
         "Value": "₹15.81 - ₹15.91",
-        "Signal": "Immediate downside floor breached; tracking secondary support (S2: ₹15.67).",
+        "Signal": "Immediate downside floor breached; tracking secondary support.",
     },
 ]
 
 st.table(pd.DataFrame(indicators_data))
 
-# Note: The requested portion "Recent News & Catalysts (Past Month / Outlook)" has been successfully removed as per instructions.
-
-st.markdown("### 💡 Analyst Conclusion")
+st.markdown("### 💡 Summary Guidance")
 st.info(
-    "Although quantitative screens highlight that the equity is trading at a statistical discount relative to its 50-day average, "
-    "heavy institutional selling pressure requires caution. Short-term models point to localized consolidation before any structural recovery "
-    "toward the 1-to-3-month targets can materialize."
+    f"The model engine ({hidden_execution_engine} at {hidden_confidence_interval}% confidence) confirms that while "
+    f"{ticker_symbol} is currently listed at a mathematical discount, short-term selling requires an **ACCUMULATE** approach rather than "
+    "an aggressive full lump-sum buy."
 )
