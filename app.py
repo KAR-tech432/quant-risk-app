@@ -268,37 +268,37 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 7. QUANT HEALTH CHECKS (SIMPLIFIED METRICS WITH TOOLTIPS)
+    # 7. QUANT HEALTH CHECKS (HUMAN-READABLE HEADERS & TECHNICAL DELTAS)
     # -------------------------------------------------------------
-    st.subheader("⚡ Quant Edge Health Checks")
+    st.subheader("⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
 
     q1.metric(
         label="Price Valuation", 
-        value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Overbought" if z_score_val > 1.5 else "Oversold"), 
-        delta=f"{z_score_val:+.2f} σ",
-        help="Price Z-Score: Checks if the stock is normally priced (Fair Value), overly expensive (Overbought), or cheap (Oversold) relative to its 50-day trend."
+        value="Fair Value" if -1.5 <= z_score_val <= 1.5 else ("Expensive" if z_score_val > 1.5 else "Cheap"), 
+        delta=f"Z-Score: {z_score_val:+.2f} σ",
+        help="Price Z-Score: Checks if the stock is priced normally (Fair Value), too high (Expensive), or deeply discounted (Cheap) compared to its recent average."
     )
 
     q2.metric(
-        label="Big Money Flow", 
+        label="Big Money Activity", 
         value="BUYING" if obv_slope_val > 0 else "SELLING", 
-        delta=f"{obv_slope_val:,.0f} Delta",
-        help="Smart Money Flow: Measures whether institutional volume is quietly building positions (BUYING) or dumping shares (SELLING)."
+        delta=f"OBV Delta: {obv_slope_val:,.0f}",
+        help="Smart Money Flow: Tracks whether large institutional investors are accumulating shares or quietly dumping them."
     )
 
     q3.metric(
-        label="Breakout Status", 
-        value="BUILDING ENERGY" if squeeze_val else "ACTIVE MOVE", 
+        label="Breakout Stage", 
+        value="COILING / SQUEEZE" if squeeze_val else "ACTIVE MOVE", 
         delta="Consolidation" if squeeze_val else "Trending Now",
-        help="Volatility Squeeze: 'Building Energy' indicates the price is coiling for a major move. 'Active Move' means the breakout is currently underway."
+        help="Volatility Squeeze: 'Coiling' means price is compressed like a spring before a sharp breakout. 'Active Move' means the expansion is underway."
     )
 
     q4.metric(
-        label="AI Forecast", 
-        value=f"{prob_up:.1f}% Win Odds", 
-        delta=f"Model Acc: {accuracy:.1f}%",
-        help="XGBoost Edge: An AI model analyzing historical market patterns to predict the percentage probability of a price increase tomorrow."
+        label="AI Upward Odds", 
+        value=f"{prob_up:.1f}% Win Chance", 
+        delta=f"XGBoost Acc: {accuracy:.1f}%",
+        help="XGBoost Edge: An AI model that analyzes past price patterns to estimate the percentage probability of the stock closing higher tomorrow."
     )
 
     st.markdown("---")
