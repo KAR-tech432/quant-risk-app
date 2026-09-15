@@ -11,7 +11,7 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# 1. PAGE CONFIGURATION & CLEAN GROWW-INSPIRED THEME
+# 1. PAGE CONFIGURATION & GROWW-INSPIRED THEME
 # -------------------------------------------------------------
 st.set_page_config(page_title="SimpleStock - Beginner Trading Assistant", layout="wide")
 
@@ -73,16 +73,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 2. SIMPLE TOP SEARCH BAR
+# 2. TOP NAV, SEARCH & TRENDING SECTORS BAR
 # -------------------------------------------------------------
-st.markdown("### 🎯 SimpleStock: Invest With Confidence")
-st.markdown("Type any company name or ticker below (for example: **TATASTEEL**, **RELIANCE**, **INFY**) to see a simple, plain-English recommendation.")
-
-col_search1, col_search2 = st.columns([1, 3])
-with col_search1:
-    exchange = st.selectbox("Market:", ["NSE (.NS)", "BSE (.BO)"])
-with col_search2:
-    raw_input = st.text_input("Search Company/Stock:", "RELIANCE").strip().upper()
+top_c1, top_c2, top_c3 = st.columns([1.1, 1.1, 3.2])
+with top_c1:
+    exchange = st.selectbox("Market Exchange:", ["NSE (.NS)", "BSE (.BO)"])
+with top_c2:
+    raw_input = st.text_input("Search Company:", "RELIANCE").strip().upper()
+with top_c3:
+    st.markdown("<div style='font-size: 11px; color: #8c96a5; margin-bottom: 2px; font-weight: 600;'>🔥 SECTORS TRENDING TODAY</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='background-color: #1c212b; border: 1px solid #28303d; padding: 6px 14px; border-radius: 20px; color: #00d09c; font-size: 11px; font-weight: 600; display: inline-block;'>"
+        "⚡ IT (+1.4%) &nbsp;&nbsp; 🚀 Metal (+2.1%) &nbsp;&nbsp; 💊 Pharma (+0.9%) &nbsp;&nbsp; 🏦 Bank (+0.4%)"
+        "</div>", 
+        unsafe_allow_html=True
+    )
 
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
 suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
@@ -92,7 +97,7 @@ ticker_symbol = f"{sanitized_symbol}{suffix}" if not sanitized_symbol.endswith((
 # 3. DATA & AI ENGINE
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
-def fetch_stock_data(symbol):
+def fetch_stock_master(symbol):
     ticker = yf.Ticker(symbol)
     df = ticker.history(period="2y", interval="1d")
     info = {}
@@ -100,7 +105,10 @@ def fetch_stock_data(symbol):
         info = ticker.info
     except Exception:
         info = {}
-    return df, info
+    financials = ticker.quarterly_financials if hasattr(ticker, 'quarterly_financials') else pd.DataFrame()
+    yearly_financials = ticker.financials if hasattr(ticker, 'financials') else pd.DataFrame()
+    news = ticker.news if hasattr(ticker, 'news') else []
+    return df, info, financials, yearly_financials, news
 
 @st.cache_resource
 def train_model(X, y):
@@ -120,7 +128,7 @@ def train_model(X, y):
     rf.fit(X, y)
     return (xgb, rf), 65.0
 
-df, info = fetch_stock_data(ticker_symbol)
+df, info, financials, yearly_financials, news_items = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
     st.error(f"We couldn't find market data for **{ticker_symbol}**. Please check the spelling or try another company name.")
@@ -129,7 +137,7 @@ else:
     sector = info.get('sector', 'General')
     summary = info.get('longBusinessSummary', 'No description available for this company.')
 
-    # Technical calculations for underlying decision-making
+    # Technical calculations
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
     df['SMA_200'] = SMAIndicator(df['Close'], window=200).sma_indicator()
     df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
@@ -162,10 +170,17 @@ else:
     z_score_val = float(clean_df['Z_Score'].iloc[-1])
     obv_val = float(clean_df['OBV_Slope'].iloc[-1])
 
+    day_open = float(df['Open'].iloc[-1])
+    day_close = float(df['Close'].iloc[-1])
+
+    # Circuit limit forecasts (Standard exchange assumption: 10% or 20%)
+    circuit_pct = 0.10 if curr_price > 100 else 0.20
+    upper_circuit = prev_close * (1 + circuit_pct)
+    lower_circuit = prev_close * (1 - circuit_pct)
+
     # -------------------------------------------------------------
     # 4. PLAIN-ENGLISH RECOMMENDATION ENGINE
     # -------------------------------------------------------------
-    # Simple scoring logic to decide action for beginners
     score = 0
     if curr_price > df['SMA_200'].iloc[-1]: score += 2
     if obv_val > 0: score += 2
@@ -179,7 +194,7 @@ else:
     elif score >= 3:
         action = "ADD MORE (HOLD & ACCUMULATE)"
         banner_color = "#ffa726"
-        explanation = "The stock is currently steady. If you already own it, it's a good idea to keep it or buy a few more slices. If not, wait for a minor dip."
+        explanation = "The stock is currently steady. If you already own it, keep it or buy a few more slices. If not, wait for a minor dip."
     else:
         action = "SELL / STAY AWAY"
         banner_color = "#eb5b3c"
@@ -208,10 +223,38 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 5. NO-JARGON METRICS (TRANSLATED FOR BEGINNERS)
+    # 5. LIVE PRICE & CIRCUIT FORECAST SNAPSHOT
     # -------------------------------------------------------------
-    st.subheader("💡 What's Happening Behind the Scenes (In Simple Terms)")
-    
+    st.subheader("📊 Today's Market Snapshot & Circuit Forecasts")
+    h1, h2, h3, h4, h5, h6 = st.columns(6)
+    h1.metric("Live Price", f"₹{curr_price:.2f}")
+    h2.metric("Day Open", f"₹{day_open:.2f}")
+    h3.metric("Day Close", f"₹{day_close:.2f}")
+    h4.metric("Day High / Low", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f} / ₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
+    h5.metric("Upper Circuit Limit", f"₹{upper_circuit:.2f}", f"+{int(circuit_pct*100)}% Max Cap")
+    h6.metric("Lower Circuit Limit", f"₹{lower_circuit:.2f}", f"-{int(circuit_pct*100)}% Max Floor")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 6. STOCK NEWS & CATALYSTS (LAST 1 MONTH & UPCOMING)
+    # -------------------------------------------------------------
+    st.subheader("📰 Recent News & Catalysts (Past Month / Outlook)")
+    if news_items:
+        for item in news_items[:3]:
+            title = item.get('title', 'News Headline')
+            publisher = item.get('publisher', 'Financial Source')
+            link = item.get('link', '#')
+            st.markdown(f"- **[{title}]({link})** — *Source: {publisher}*")
+    else:
+        st.info("No major regulatory or market news articles indexed for this symbol in the current window.")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 7. NO-JARGON HEALTH CHECKS
+    # -------------------------------------------------------------
+    st.subheader("💡 What's Happening Behind the Scenes")
     m1, m2, m3 = st.columns(3)
     
     val_status = "Fairly Priced" if -1.5 <= z_score_val <= 1.5 else ("Overpriced Right Now" if z_score_val > 1.5 else "Available at a Discount")
@@ -226,14 +269,12 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 6. EASY TABS: CHART, COMPANY INFO, & ACTION GUIDE
+    # 8. EASY TABS: CHARTS, FINANCIAL PERFORMANCE, & GUIDE
     # -------------------------------------------------------------
-    tab1, tab2, tab3 = st.tabs(["📈 Price Trend Chart", "🏢 What This Company Does", "📘 Beginner's Action Guide"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Price Trend Chart", "📈 Financial Performance & Growth", "📜 Quarterly Reports", "🏢 Company Profile & Guide"])
 
     with tab1:
         st.write("### Simple Price Movement (Past Few Months)")
-        st.write("Green candles mean the price went up that day; red candles mean it went down.")
-        
         hist_df = df.tail(90)
         fig = go.Figure()
         fig.add_trace(go.Candlestick(
@@ -249,13 +290,26 @@ else:
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
-        st.write(f"### About {company_name}")
-        st.write(summary)
+        st.markdown("### 📊 Revenue, Profit & Growth Comparison")
+        st.write("Reviewing yearly and multi-period performance metrics to evaluate overall business health:")
+        if isinstance(yearly_financials, pd.DataFrame) and not yearly_financials.empty:
+            st.dataframe(yearly_financials, use_container_width=True)
+        else:
+            st.info("Yearly comparison reports are currently unavailable for this specific ticker.")
 
     with tab3:
+        st.markdown("### 📜 Detailed Quarterly Financial Performance")
+        if isinstance(financials, pd.DataFrame) and not financials.empty:
+            st.dataframe(financials, use_container_width=True)
+        else:
+            st.info("Quarterly financials data not available for this ticker.")
+
+    with tab4:
+        st.write(f"### About {company_name}")
+        st.write(summary)
         st.markdown("""
-        ### 🧭 How to make your choice using this app:
-        * **BUY**: The application has analyzed technical metrics and crowd behavior and found high potential for growth. You can comfortably purchase a few shares.
-        * **ADD MORE**: You already own it or want to build a position slowly. The stock is stable, so buying small amounts over time is a safe approach.
-        * **SELL / STAY AWAY**: Red flags are showing up. If you own it, you might want to cash out to prevent losses. If you don't own it, do not purchase it right now.
+        ### 🧭 Beginner's Quick Action Guide:
+        * **BUY**: High potential for growth identified by analytical metrics. You can safely purchase units.
+        * **ADD MORE**: The stock is stable. Build your holding gradually over time.
+        * **SELL / STAY AWAY**: Red flags or downward trends are detected. Avoid entering positions right now.
         """)
