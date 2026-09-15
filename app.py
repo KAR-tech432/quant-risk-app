@@ -9,13 +9,12 @@ from ta.momentum import RSIIndicator
 from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 
 # -------------------------------------------------------------
-# 1. PAGE CONFIGURATION & HIGH-VISIBILITY DAYLIGHT STYLING
+# 1. PAGE CONFIGURATION & STYLING
 # -------------------------------------------------------------
 st.set_page_config(page_title="QuantEdge 360° Terminal", layout="wide")
 
 st.markdown("""
 <style>
-    /* Reset padding for maximum screen real estate */
     .block-container {
         padding-top: 1.8rem !important;
         padding-bottom: 0rem !important;
@@ -23,7 +22,6 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
     
-    /* High-Contrast Dark Slate Terminal Card */
     .terminal-card {
         background-color: #161922;
         border: 1px solid #33394B;
@@ -58,7 +56,6 @@ st.markdown("""
         margin-top: 4px;
     }
 
-    /* Solid High-Visibility Verdict Badge with Outdoor Readability */
     .verdict-box-solid {
         border-radius: 6px;
         padding: 10px 14px;
@@ -98,7 +95,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 2. SIDEBAR CONFIGURATION CONTROLS
+# 2. SIDEBAR CONFIGURATION
 # -------------------------------------------------------------
 st.sidebar.header("🎯 Asset Settings")
 exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
@@ -113,7 +110,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# 3. CACHED DATA FETCHING & HIGH-ACCURACY MODEL TRAINING
+# 3. DATA FETCHING & MODEL TRAINING
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -130,43 +127,7 @@ def fetch_stock_master(symbol):
     return df, info, financials
 
 @st.cache_resource
-def train_xgboost(clean_data):
-    df_feat = clean_data.copy()
-    
-    # Advanced Multi-Timeframe Feature Engineering
-    df_feat['Ret_1D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(1))
-    df_feat['Ret_5D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(5))
-    df_feat['Ret_20D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(20))
-    
-    # Volatility & Volume Spread Indicators
-    df_feat['HL_Spread'] = (df_feat['High'] - df_feat['Low']) / df_feat['Close']
-    df_feat['Vol_ZScore'] = (df_feat['Volume'] - df_feat['Volume'].rolling(20).mean()) / df_feat['Volume'].rolling(20).std()
-    
-    # Lagged Momentum Dynamics
-    df_feat['RSI_Lag1'] = df_feat['RSI'].shift(1)
-    df_feat['RSI_Slope'] = df_feat['RSI'] - df_feat['RSI_Lag1']
-    
-    # Noise-Filtered Target Setup (0.75% threshold to eliminate coin-flip predictions)
-    future_return = (df_feat['Close'].shift(-1) - df_feat['Close']) / df_feat['Close']
-    df_feat['Target_Direction'] = np.where(future_return > 0.0075, 1, 0)
-    
-    df_feat = df_feat.dropna()
-    
-    feature_cols = [
-        'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'ATR', 
-        'Z_Score', 'OBV_Slope', 'Ret_1D', 'Ret_5D', 'Ret_20D', 
-        'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
-    ]
-    
-    X = df_feat[feature_cols]
-    y = df_feat['Target_Direction']
-
-    # Chronological Time-Series Split (80% Train / 20% Out-of-Sample Test)
-    split = int(len(df_feat) * 0.8)
-    X_train, y_train = X.iloc[:split], y.iloc[:split]
-    X_test, y_test = X.iloc[split:], y.iloc[split:]
-
-    # Optimized Hyperparameters with Regularization
+def train_xgboost(X_train, y_train, X_test, y_test):
     model = XGBClassifier(
         n_estimators=150,
         learning_rate=0.015,
@@ -181,10 +142,9 @@ def train_xgboost(clean_data):
     
     model.fit(X_train, y_train)
     accuracy = (model.predict(X_test) == y_test).mean() * 100
-    
-    return model, accuracy, feature_cols
+    return model, accuracy
 
-# Load Asset Data
+# Load Data
 df, info, financials = fetch_stock_master(ticker_symbol)
 
 if df is None or df.empty:
@@ -196,7 +156,7 @@ else:
     summary = info.get('longBusinessSummary', 'No detailed business summary available.')
 
     # -------------------------------------------------------------
-    # 4. QUANTITATIVE FEATURE ENGINEERING
+    # 4. MASTER FEATURE ENGINEERING (ALL IN ONE PLACE)
     # -------------------------------------------------------------
     df['SMA_20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
     df['SMA_50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
@@ -218,14 +178,45 @@ else:
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
+    # Multi-Timeframe Log Returns & Spreads
+    df['Ret_1D'] = np.log(df['Close'] / df['Close'].shift(1))
+    df['Ret_5D'] = np.log(df['Close'] / df['Close'].shift(5))
+    df['Ret_20D'] = np.log(df['Close'] / df['Close'].shift(20))
+    df['HL_Spread'] = (df['High'] - df['Low']) / df['Close']
+    df['Vol_ZScore'] = (df['Volume'] - df['Volume'].rolling(20).mean()) / df['Volume'].rolling(20).std()
+    
+    # Lagged Momentum Dynamics
+    df['RSI_Lag1'] = df['RSI'].shift(1)
+    df['RSI_Slope'] = df['RSI'] - df['RSI_Lag1']
+
+    # Noise-Filtered Direction Target
+    future_return = (df['Close'].shift(-1) - df['Close']) / df['Close']
+    df['Target_Direction'] = np.where(future_return > 0.0075, 1, 0)
+
+    # Clean dataset for ML training
     clean_df = df.dropna().copy()
 
-    # Model Execution
-    model, accuracy, features = train_xgboost(clean_df)
-    latest_features = clean_df[features].tail(1)
+    feature_cols = [
+        'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'ATR', 
+        'Z_Score', 'OBV_Slope', 'Ret_1D', 'Ret_5D', 'Ret_20D', 
+        'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
+    ]
+
+    # Split for Model Training
+    X = clean_df[feature_cols]
+    y = clean_df['Target_Direction']
+
+    split = int(len(clean_df) * 0.8)
+    X_train, y_train = X.iloc[:split], y.iloc[:split]
+    X_test, y_test = X.iloc[split:], y.iloc[split:]
+
+    # Train Model
+    model, accuracy = train_xgboost(X_train, y_train, X_test, y_test)
+    
+    latest_features = clean_df[feature_cols].tail(1)
     prob_up = model.predict_proba(latest_features)[0][1] * 100
 
-    # Real-Time Price Analytics
+    # Live Price Analytics
     curr_price = float(info.get('currentPrice', df['Close'].iloc[-1]))
     prev_close = float(info.get('previousClose', df['Close'].iloc[-2]))
     price_change = curr_price - prev_close
@@ -273,7 +264,7 @@ else:
         action_summary = "High volatility squeeze active; await trend confirmation."
 
     # -------------------------------------------------------------
-    # 6. HEADER CARDS (DAYLIGHT OPTIMIZED)
+    # 6. HEADER CARDS
     # -------------------------------------------------------------
     head_col1, head_col2 = st.columns([1.6, 1])
 
@@ -304,7 +295,7 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 7. QUANT HEALTH CHECKS (SIMPLIFIED HEADERS & TECHNICAL DELTAS)
+    # 7. DASHBOARD HEALTH CHECKS
     # -------------------------------------------------------------
     st.subheader("⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
