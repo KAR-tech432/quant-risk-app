@@ -113,7 +113,7 @@ atr_multiplier = st.sidebar.slider("Stop-Loss ATR Multiplier:", 1.0, 3.0, 1.5, 0
 capital_allocated = st.sidebar.number_input("Capital to Risk (₹):", value=50000, step=5000)
 
 # -------------------------------------------------------------
-# 3. CACHED DATA FETCHING & MODEL TRAINING
+# 3. CACHED DATA FETCHING & HIGH-ACCURACY MODEL TRAINING
 # -------------------------------------------------------------
 @st.cache_data(ttl=300)
 def fetch_stock_master(symbol):
@@ -131,19 +131,58 @@ def fetch_stock_master(symbol):
 
 @st.cache_resource
 def train_xgboost(clean_data):
-    features = ['Close', 'Open', 'High', 'Low', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'ATR', 'Z_Score', 'OBV_Slope']
-    X = clean_data[features]
-    y = clean_data['Target_Direction']
+    df_feat = clean_data.copy()
+    
+    # Advanced Multi-Timeframe Feature Engineering
+    df_feat['Ret_1D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(1))
+    df_feat['Ret_5D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(5))
+    df_feat['Ret_20D'] = np.log(df_feat['Close'] / df_feat['Close'].shift(20))
+    
+    # Volatility & Volume Spread Indicators
+    df_feat['HL_Spread'] = (df_feat['High'] - df_feat['Low']) / df_feat['Close']
+    df_feat['Vol_ZScore'] = (df_feat['Volume'] - df_feat['Volume'].rolling(20).mean()) / df_feat['Volume'].rolling(20).std()
+    
+    # Lagged Momentum Dynamics
+    df_feat['RSI_Lag1'] = df_feat['RSI'].shift(1)
+    df_feat['RSI_Slope'] = df_feat['RSI'] - df_feat['RSI_Lag1']
+    
+    # Noise-Filtered Target Setup (0.75% threshold to eliminate coin-flip predictions)
+    future_return = (df_feat['Close'].shift(-1) - df_feat['Close']) / df_feat['Close']
+    df_feat['Target_Direction'] = np.where(future_return > 0.0075, 1, 0)
+    
+    df_feat = df_feat.dropna()
+    
+    feature_cols = [
+        'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'ATR', 
+        'Z_Score', 'OBV_Slope', 'Ret_1D', 'Ret_5D', 'Ret_20D', 
+        'HL_Spread', 'Vol_ZScore', 'RSI_Slope'
+    ]
+    
+    X = df_feat[feature_cols]
+    y = df_feat['Target_Direction']
 
-    split = int(len(clean_data) * 0.8)
+    # Chronological Time-Series Split (80% Train / 20% Out-of-Sample Test)
+    split = int(len(df_feat) * 0.8)
     X_train, y_train = X.iloc[:split], y.iloc[:split]
     X_test, y_test = X.iloc[split:], y.iloc[split:]
 
-    model = XGBClassifier(n_estimators=100, learning_rate=0.03, max_depth=4, random_state=42, n_jobs=1)
+    # Optimized Hyperparameters with Regularization
+    model = XGBClassifier(
+        n_estimators=150,
+        learning_rate=0.015,
+        max_depth=3,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        reg_alpha=0.5,
+        reg_lambda=1.5,
+        random_state=42,
+        n_jobs=-1
+    )
+    
     model.fit(X_train, y_train)
-
     accuracy = (model.predict(X_test) == y_test).mean() * 100
-    return model, accuracy, features
+    
+    return model, accuracy, feature_cols
 
 # Load Asset Data
 df, info, financials = fetch_stock_master(ticker_symbol)
@@ -179,8 +218,6 @@ else:
     kc = KeltnerChannel(df['High'], df['Low'], df['Close'], window=20)
     df['Squeeze_Active'] = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (bb.bollinger_lband() > kc.keltner_channel_lband())
 
-    # Directional Target Setup
-    df['Target_Direction'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
     clean_df = df.dropna().copy()
 
     # Model Execution
@@ -218,22 +255,21 @@ else:
     if (rsi_val >= 50.0 and rsi_val <= 70.0) or (rsi_val <= 30.0): total_bullish_score += 1
     if pe_ratio is not None and pe_ratio < 25.0: total_bullish_score += 1
 
-    # Dynamic verdict colors tied directly to intraday momentum & quantitative health
     if pct_change > 0.0 and total_bullish_score >= 5 and z_score_val < 1.8:
         action_decision = "ACCUMULATE (BUY)"
-        banner_bg = "#00C853"  # Vibrant Green
+        banner_bg = "#00C853"
         action_summary = f"Up {pct_change:+.2f}% today with strong institutional accumulation."
     elif pct_change < 0.0 or total_bullish_score < 4 or z_score_val > 2.0:
         action_decision = "SHORT / REDUCE"
-        banner_bg = "#D50000"  # High-Visibility Red
+        banner_bg = "#D50000"
         action_summary = f"Down {pct_change:+.2f}% today under heavy selling pressure or overextension."
     elif pct_change == 0.0 or total_bullish_score >= 4:
         action_decision = "HOLD (NEUTRAL)"
-        banner_bg = "#FF6D00"  # Vibrant Orange
+        banner_bg = "#FF6D00"
         action_summary = "Trading flat; overall market momentum remains balanced."
     else:
         action_decision = "EXIT / AVOID"
-        banner_bg = "#AA00FF"  # High-Contrast Purple
+        banner_bg = "#AA00FF"
         action_summary = "High volatility squeeze active; await trend confirmation."
 
     # -------------------------------------------------------------
@@ -268,7 +304,7 @@ else:
         """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------
-    # 7. QUANT HEALTH CHECKS (HUMAN-READABLE HEADERS & TECHNICAL DELTAS)
+    # 7. QUANT HEALTH CHECKS (SIMPLIFIED HEADERS & TECHNICAL DELTAS)
     # -------------------------------------------------------------
     st.subheader("⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
@@ -298,7 +334,7 @@ else:
         label="AI Upward Odds", 
         value=f"{prob_up:.1f}% Win Chance", 
         delta=f"XGBoost Acc: {accuracy:.1f}%",
-        help="XGBoost Edge: An AI model that analyzes past price patterns to estimate the percentage probability of the stock closing higher tomorrow."
+        help="XGBoost Edge: An AI model that analyzes past price patterns to estimate the probability of the stock moving higher tomorrow by >0.75%."
     )
 
     st.markdown("---")
