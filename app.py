@@ -1,9 +1,8 @@
 import pandas as pd
 import streamlit as st
 import yfinance as yf
-from PIL import Image
 
-st.set_page_config(page_title="Accurate Stock Predictor", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Stock Predictor", page_icon="📈", layout="wide")
 
 st.markdown(
     """
@@ -20,52 +19,22 @@ st.markdown(
 )
 
 st.subheader("🎯 Real-Time Stock Analysis & Prediction Portal")
-
-# Exactly 2 options with no default selections
-mode = st.selectbox(
-    "Choose Input Method:",
-    ["-- Select Input Method --", "Upload Chart Screenshot", "Enter Stock Ticker"],
-)
 st.markdown("---")
 
+# Direct Ticker Input (Upload option completely removed)
+c1, c2 = st.columns([1, 2])
+with c1:
+    ex = st.selectbox("Market Exchange:", [".NS", ".BO"])
+with c2:
+    inp = st.text_input(
+        "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY):",
+        value="",
+        placeholder="Type symbol...",
+    ).upper()
+
 ticker = None
-
-if mode == "Upload Chart Screenshot":
-    uploaded = st.file_uploader(
-        "Upload Candlestick Chart:", type=["png", "jpg", "jpeg"]
-    )
-    if uploaded:
-        st.image(
-            Image.open(uploaded),
-            caption="Uploaded Chart",
-            use_container_width=True,
-        )
-        # Note: True automated chart OCR extraction requires external vision keys.
-        # Please type the stock ticker found on your chart below for 100% data accuracy:
-        manual_override = st.text_input(
-            "Confirm or Type Stock Ticker from Chart (e.g., RELIANCE.NS, TCS.NS):",
-            value="",
-            placeholder="Enter ticker...",
-        ).upper()
-        if manual_override:
-            ticker = (
-                manual_override
-                if manual_override.endswith((".NS", ".BO"))
-                else f"{manual_override}.NS"
-            )
-
-elif mode == "Enter Stock Ticker":
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        ex = st.selectbox("Exchange:", [".NS", ".BO"])
-    with c2:
-        inp = st.text_input(
-            "Enter Ticker (e.g., RELIANCE, TCS, INFY):",
-            value="",
-            placeholder="Type symbol...",
-        ).upper()
-    if inp:
-        ticker = inp if inp.endswith((".NS", ".BO")) else f"{inp}{ex}"
+if inp:
+    ticker = inp if inp.endswith((".NS", ".BO")) else f"{inp}{ex}"
 
 if ticker:
     try:
@@ -169,5 +138,5 @@ if ticker:
         )
 else:
     st.info(
-        "👆 Please select an input method and enter/confirm your stock ticker to fetch accurate live data."
+        "👆 Please enter a stock ticker above to fetch accurate live market data and predictions."
     )
