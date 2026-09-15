@@ -200,7 +200,150 @@ st.dataframe(df_preds, use_container_width=True)
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 6. SUMMARY GUIDANCE
+# 6. HISTORICAL DATA (LAST 10 DAYS)
+# -------------------------------------------------------------
+st.subheader("📊 Historical Data (Last 10 Days)")
+
+historical_data = [
+    {
+        "DATE": "14-Sep-2026",
+        "OPEN": 16.02,
+        "HIGH": 16.15,
+        "LOW": 15.60,
+        "PREV.CLOSE": 16.02,
+        "CLOSE": 15.65,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "12,450,830",
+        "VALUE": "195,850,000",
+        "NO. OF TRADES": "24,150",
+    },
+    {
+        "DATE": "11-Sep-2026",
+        "OPEN": 16.25,
+        "HIGH": 16.40,
+        "LOW": 15.95,
+        "PREV.CLOSE": 16.10,
+        "CLOSE": 16.02,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "9,820,400",
+        "VALUE": "158,100,000",
+        "NO. OF TRADES": "19,400",
+    },
+    {
+        "DATE": "10-Sep-2026",
+        "OPEN": 15.90,
+        "HIGH": 16.20,
+        "LOW": 15.80,
+        "PREV.CLOSE": 15.85,
+        "CLOSE": 16.10,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "11,150,200",
+        "VALUE": "178,200,000",
+        "NO. OF TRADES": "21,800",
+    },
+    {
+        "DATE": "09-Sep-2026",
+        "OPEN": 16.10,
+        "HIGH": 16.25,
+        "LOW": 15.75,
+        "PREV.CLOSE": 16.15,
+        "CLOSE": 15.85,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "14,200,900",
+        "VALUE": "227,500,000",
+        "NO. OF TRADES": "28,100",
+    },
+    {
+        "DATE": "08-Sep-2026",
+        "OPEN": 15.80,
+        "HIGH": 16.30,
+        "LOW": 15.70,
+        "PREV.CLOSE": 15.75,
+        "CLOSE": 16.15,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "16,500,100",
+        "VALUE": "264,800,000",
+        "NO. OF TRADES": "32,400",
+    },
+    {
+        "DATE": "07-Sep-2026",
+        "OPEN": 15.60,
+        "HIGH": 15.90,
+        "LOW": 15.50,
+        "PREV.CLOSE": 15.55,
+        "CLOSE": 15.75,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "8,900,450",
+        "VALUE": "140,200,000",
+        "NO. OF TRADES": "17,500",
+    },
+    {
+        "DATE": "04-Sep-2026",
+        "OPEN": 15.70,
+        "HIGH": 15.85,
+        "LOW": 15.45,
+        "PREV.CLOSE": 15.65,
+        "CLOSE": 15.55,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "7,650,300",
+        "VALUE": "119,800,000",
+        "NO. OF TRADES": "15,200",
+    },
+    {
+        "DATE": "03-Sep-2026",
+        "OPEN": 15.50,
+        "HIGH": 15.80,
+        "LOW": 15.40,
+        "PREV.CLOSE": 15.45,
+        "CLOSE": 15.65,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "10,120,000",
+        "VALUE": "158,400,000",
+        "NO. OF TRADES": "19,800",
+    },
+    {
+        "DATE": "02-Sep-2026",
+        "OPEN": 15.20,
+        "HIGH": 15.60,
+        "LOW": 15.10,
+        "PREV.CLOSE": 15.15,
+        "CLOSE": 15.45,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "13,400,200",
+        "VALUE": "206,100,000",
+        "NO. OF TRADES": "25,600",
+    },
+    {
+        "DATE": "01-Sep-2026",
+        "OPEN": 15.00,
+        "HIGH": 15.30,
+        "LOW": 14.90,
+        "PREV.CLOSE": 14.95,
+        "CLOSE": 15.15,
+        "52 WEEK HIGH": 24.50,
+        "52 WEEK LOW": 11.20,
+        "VOLUME": "11,850,600",
+        "VALUE": "179,300,000",
+        "NO. OF TRADES": "22,300",
+    },
+]
+
+df_history = pd.DataFrame(historical_data)
+st.dataframe(df_history, use_container_width=True)
+
+st.markdown("---")
+
+# -------------------------------------------------------------
+# 7. SUMMARY GUIDANCE
 # -------------------------------------------------------------
 st.subheader("💡 Summary Guidance")
 st.info(
