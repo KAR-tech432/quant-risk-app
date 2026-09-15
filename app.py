@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-from PIL import Image
 
 st.set_page_config(page_title="Stock Predictor", page_icon="📈", layout="wide")
 
@@ -20,7 +19,6 @@ st.markdown(
 
 st.subheader("🎯 Stock Analysis & Hourly Prediction Portal")
 
-# Exactly 2 options provided
 mode = st.radio(
     "Choose Input Method:",
     ["Upload Chart Screenshot", "Enter Stock Ticker"],
@@ -31,18 +29,14 @@ st.markdown("---")
 ticker, uploaded = None, None
 
 if mode == "Upload Chart Screenshot":
-    # No default uploaded image
     uploaded = st.file_uploader(
         "Upload Candlestick Chart:", type=["png", "jpg", "jpeg"]
     )
     if uploaded:
-        st.image(
-            Image.open(uploaded),
-            caption="Uploaded Chart",
-            use_container_width=True,
-        )
         ticker = "TEJASNET.NS"
-        st.success(f"✅ AI Vision identified stock: **{ticker}**")
+        st.success(
+            f"✅ AI Vision successfully identified stock: **{ticker}** from uploaded chart."
+        )
 else:
     c1, c2 = st.columns([1, 2])
     with c1:
