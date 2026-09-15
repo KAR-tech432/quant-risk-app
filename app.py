@@ -71,15 +71,13 @@ ticker_symbol = (
 st.markdown("---")
 
 # -------------------------------------------------------------
-# 2. CHART UPLOADER SECTION (Dropdown removed as requested)
+# 2. CHART UPLOADER SECTION (Dropdown removed)
 # -------------------------------------------------------------
 st.subheader("📷 Upload Chart for Vision & Technical Analysis")
 uploaded_chart = st.file_uploader(
     "Upload Candlestick Chart Screenshot (TradingView / Broker Platform):",
     type=["png", "jpg", "jpeg"],
 )
-
-chart_timeframe = "Hourly (1h)"  # Fixed default since timeframe selector dropdown was removed
 
 if uploaded_chart is not None:
     img = Image.open(uploaded_chart)
