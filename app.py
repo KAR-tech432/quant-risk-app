@@ -18,7 +18,7 @@ st.set_page_config(page_title="Apex Quant Engine - Secure", layout="wide")
 st.markdown("""
 <style>
     .block-container {
-        padding-top: 1.8rem !important;
+        padding-top: 1.2rem !important;
         padding-bottom: 0rem !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
@@ -76,16 +76,6 @@ st.markdown("""
         opacity: 0.95;
         margin-top: 2px;
     }
-    .security-badge {
-        font-size: 10px;
-        color: #00E5FF;
-        background: #0A192F;
-        border: 1px solid #172A45;
-        padding: 4px 8px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        display: inline-block;
-    }
     /* Compact Custom Sizing for Health Check Metrics */
     div[data-testid="stMetric"] label {
         font-size: 12px !important;
@@ -100,13 +90,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 2. ORGANIZATIONAL DESIGN & SECURITY SIDEBAR (TOP LEFT)
+# 2. TOP-LEFT OPTIONS PANEL (EXCHANGE & SYMBOL INPUTS)
 # -------------------------------------------------------------
-st.sidebar.markdown('<div class="security-badge">🔒 AES-256 / SHA-256 Verified Secure</div>', unsafe_allow_html=True)
-st.sidebar.header("🎯 organizational design")
-
-exchange = st.sidebar.radio("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
-raw_input = st.sidebar.text_input("Stock Symbol:", "JPPOWER").strip().upper()
+top_c1, top_c2, _ = st.columns([1.2, 1.2, 3.6])
+with top_c1:
+    exchange = st.selectbox("Select Exchange:", ["NSE (.NS)", "BSE (.BO)"])
+with top_c2:
+    raw_input = st.text_input("Stock Symbol:", "JPPOWER").strip().upper()
 
 sanitized_symbol = "".join(e for e in raw_input if e.isalnum())
 suffix = ".NS" if exchange == "NSE (.NS)" else ".BO"
@@ -350,8 +340,21 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
+    st.markdown("---")
+
     # -------------------------------------------------------------
-    # 7. DASHBOARD HEALTH CHECKS
+    # 7. LIVE PRICE SNAPSHOT (MOVED TO TOP)
+    # -------------------------------------------------------------
+    h1, h2, h3, h4 = st.columns(4)
+    h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
+    h2.metric("Day High", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f}")
+    h3.metric("Day Low", f"₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
+    h4.metric("Volume Today", f"{int(info.get('volume', df['Volume'].iloc[-1])):,.0f}")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------
+    # 8. DASHBOARD HEALTH CHECKS
     # -------------------------------------------------------------
     st.markdown("##### ⚡ Dashboard Health Checks")
     q1, q2, q3, q4 = st.columns(4)
@@ -387,7 +390,7 @@ else:
     st.markdown("---")
 
     # -------------------------------------------------------------
-    # 8. MULTI-HORIZON AI FORECAST
+    # 9. MULTI-HORIZON AI FORECAST
     # -------------------------------------------------------------
     st.subheader("🤖 Ensemble AI Upward Odds Across Horizons")
     
@@ -402,19 +405,6 @@ else:
                 value=f"{prob_val:.1f}%",
                 delta=f"{signal_color} (Precision: {item['Model Precision']:.1f}%)"
             )
-
-    st.markdown("---")
-
-    # -------------------------------------------------------------
-    # 9. LIVE PRICE SNAPSHOT
-    # -------------------------------------------------------------
-    h1, h2, h3, h4, h5 = st.columns(5)
-    h1.metric("Live Price", f"₹{curr_price:.2f}", f"{price_change:+.2f} ({pct_change:+.2f}%)")
-    h2.metric("Day High", f"₹{info.get('dayHigh', df['High'].iloc[-1]):.2f}")
-    h3.metric("Day Low", f"₹{info.get('dayLow', df['Low'].iloc[-1]):.2f}")
-    mcap = info.get('marketCap', 0)
-    h4.metric("Market Cap", f"₹{mcap/1e7:,.0f} Cr" if mcap else "N/A")
-    h5.metric("Volume Today", f"{int(info.get('volume', df['Volume'].iloc[-1])):,.0f}")
 
     st.markdown("---")
 
