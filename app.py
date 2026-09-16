@@ -45,7 +45,7 @@ if ticker:
     if df.empty or len(df) < 20:
         st.error(f"❌ Insufficient live telemetry data for '{ticker}'. Check symbol spelling.")
     else:
-        # --- MULTI-FORMULA QUANTITATIVE ENGINE ---
+        # --- HIGH-PRECISION QUANTITATIVE ENGINE ---
         close = df['Close']
         high = df['High']
         low = df['Low']
@@ -82,11 +82,11 @@ if ticker:
 
         if bull:
             action_advice = "ACCUMULATE / BUY"
-            story = f"Buyers are active and stepping in to push the price up. The stock is trading safely above the fair average price (₹{vwap:.2f}), showing strong buyer support. <b>Decision:</b> Good time to consider buying or building a position."
+            story = f"Buyers are active and stepping in to push the price up. The stock is trading safely above the fair average price (₹{vwap:.2f}), showing strong buyer support. <b>Decision:</b> High probability setup for upward continuation."
             card_bg, border_c, accent_c = "#ecfdf5", "#059669", "#047857"
         else:
             action_advice = "DO NOT BUY / HOLD OFF"
-            story = f"Sellers are currently in control and pushing the price down. The stock is trading below the fair average price (₹{vwap:.2f}), showing that big buyers are absent. <b>Decision:</b> Better to wait and protect your money."
+            story = f"Sellers are currently in control and pushing the price down. The stock is trading below the fair average price (₹{vwap:.2f}), showing that institutional buyers are absent. <b>Decision:</b> Better to wait for structural reversal."
             card_bg, border_c, accent_c = "#fef2f2", "#dc2626", "#b91c1c"
 
         nc_h = min(p + (atr * 0.12), bb_upper)
@@ -102,8 +102,7 @@ if ticker:
         nw_l1 = p - (swing_range * 0.5) - (atr * 1.2)
         nw_l2 = p - swing_range - (atr * 2.0)
 
-        # --- CODED BRICK WALL (HARD RISK FLOOR) ---
-        # Enforces a strict coded safety limit matching Low 2 weekly extreme threshold
+        # --- ABSOLUTE BRICK WALL (STOP-LOSS FLOOR) ---
         hard_brick_wall = nw_l2
         is_wall_breached = p < hard_brick_wall
 
@@ -130,7 +129,7 @@ if ticker:
         with top_c1:
             st.markdown(f"""
                 <div class="card" style="background: {card_bg}; border: 2px solid {border_c};">
-                    <div class="title" style="color: {accent_c};">Simple Plain-English Review</div>
+                    <div class="title" style="color: {accent_c};">Quantitative Market Review</div>
                     <div style="font-size: 18px; font-weight: 900; color: {accent_c}; margin-top: 8px;">{action_advice}</div>
                     <div style="font-size: 12px; color: #0f172a; line-height: 1.5; margin-top: 8px;">
                         {story}
