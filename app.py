@@ -50,6 +50,10 @@ if ticker:
         chg = ((p - op) / op) * 100
         cur_h, cur_l = float(high.iloc[-1]), float(low.iloc[-1])
         
+        # Previous Candle Data Extraction
+        prev_h = float(high.iloc[-2]) if len(high) > 1 else cur_h
+        prev_l = float(low.iloc[-2]) if len(low) > 1 else cur_l
+        
         # 1. True Average True Range (ATR)
         tr = np.maximum(high - low, np.maximum(abs(high - close.shift(1)), abs(low - close.shift(1))))
         atr = float(tr.rolling(14).mean().iloc[-1])
@@ -78,25 +82,22 @@ if ticker:
 
         if bull:
             action_advice = "ACCUMULATE / BUY"
-            story = f"Multiple quantitative models (Pivots, VWAP, and Trend Momentum) align positively. Price is trading above institutional fair value (VWAP ₹{vwap:.2f}), signaling strong buyer defense."
+            story = f"Multiple quantitative models align positively. Price trades above institutional fair value (VWAP ₹{vwap:.2f}), signaling solid buyer defense."
             card_bg, border_c, accent_c = "#ecfdf5", "#059669", "#047857"
         else:
             action_advice = "SELL / HOLD CAUTIOUSLY"
-            story = f"Models indicate distribution pressure. Price is trading below institutional fair value (VWAP ₹{vwap:.2f}) and key moving averages, suggesting sellers control the structure."
+            story = f"Models indicate distribution pressure. Price trades below institutional fair value (VWAP ₹{vwap:.2f}) and key averages, suggesting seller control."
             card_bg, border_c, accent_c = "#fef2f2", "#dc2626", "#b91c1c"
 
         # Multi-Model Ensembled Projections
-        # Next Candle (Micro Bollinger + ATR Hybrid)
         nc_h = min(p + (atr * 0.12), bb_upper)
         nc_l = max(p - (atr * 0.12), bb_lower)
         
-        # Next Day (Pivot + ATR + Fibonacci Blend)
         nd_h1 = (2 * pp) - cur_l
         nd_h2 = p + (atr * 0.8)
         nd_l1 = (2 * pp) - cur_h
         nd_l2 = p - (atr * 0.8)
         
-        # Next Week (Multi-session Volatility & Swing Expansion)
         nw_h1 = p + (swing_range * 0.5) + (atr * 1.2)
         nw_h2 = p + swing_range + (atr * 2.0)
         nw_l1 = p - (swing_range * 0.5) - (atr * 1.2)
@@ -121,8 +122,8 @@ if ticker:
         st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')}) | Multi-Model Ensemble Active</div>", unsafe_allow_html=True)
         st.markdown("<hr style='border-color:#cbd5e1; margin:10px 0;'>", unsafe_allow_html=True)
 
-        # Layout
-        col1, col2 = st.columns([1.5, 2.5], gap="medium")
+        # Layout: 4 columns for metrics
+        col1, col2 = st.columns([1.3, 2.7], gap="medium")
         
         with col1:
             st.markdown(f"""
@@ -136,9 +137,21 @@ if ticker:
             """, unsafe_allow_html=True)
 
         with col2:
-            sub_c1, sub_c2, sub_c3 = st.columns(3, gap="small")
+            sub_c1, sub_c2, sub_c3, sub_c4 = st.columns(4, gap="small")
             
+            # Previous Candle Card
             sub_c1.markdown(f"""
+                <div class="card">
+                    <div class="title">Prev Candle</div>
+                    <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.5;">
+                        ▲ <b>High:</b> ₹{prev_h:.2f}<br>
+                        ▼ <b>Low:</b> ₹{prev_l:.2f}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Next Candle Card
+            sub_c2.markdown(f"""
                 <div class="card">
                     <div class="title">Next Candle</div>
                     <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.5;">
@@ -148,39 +161,39 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Side-by-Side Next Day
-            sub_c2.markdown(f"""
+            # Next Day Targets
+            sub_c3.markdown(f"""
                 <div class="card">
-                    <div class="title">Next Day Targets</div>
-                    <div style="display: flex; gap: 6px; margin-top: 6px;">
+                    <div class="title">Next Day</div>
+                    <div style="display: flex; gap: 4px; margin-top: 6px;">
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
-                            <span style="font-size: 10px; color: #0f172a;">🟢 H1: ₹{nd_h1:.2f}</span><br>
-                            <span style="font-size: 10px; color: #0f172a;">🟢 H2: ₹{nd_h2:.2f}</span>
+                            <div style="font-size: 8px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGH</div>
+                            <span style="font-size: 9px; color: #0f172a;">H1: ₹{nd_h1:.1f}</span><br>
+                            <span style="font-size: 9px; color: #0f172a;">H2: ₹{nd_h2:.1f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
-                            <span style="font-size: 10px; color: #0f172a;">🔴 L1: ₹{nd_l1:.2f}</span><br>
-                            <span style="font-size: 10px; color: #0f172a;">🔴 L2: ₹{nd_l2:.2f}</span>
+                            <div style="font-size: 8px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOW</div>
+                            <span style="font-size: 9px; color: #0f172a;">L1: ₹{nd_l1:.1f}</span><br>
+                            <span style="font-size: 9px; color: #0f172a;">L2: ₹{nd_l2:.1f}</span>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Side-by-Side Next Week
-            sub_c3.markdown(f"""
+            # Next Week Targets
+            sub_c4.markdown(f"""
                 <div class="card">
-                    <div class="title">Next Week Targets</div>
-                    <div style="display: flex; gap: 6px; margin-top: 6px;">
+                    <div class="title">Next Week</div>
+                    <div style="display: flex; gap: 4px; margin-top: 6px;">
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
-                            <span style="font-size: 10px; color: #0f172a;">🟢 H1: ₹{nw_h1:.2f}</span><br>
-                            <span style="font-size: 10px; color: #0f172a;">🟢 H2: ₹{nw_h2:.2f}</span>
+                            <div style="font-size: 8px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGH</div>
+                            <span style="font-size: 9px; color: #0f172a;">H1: ₹{nw_h1:.1f}</span><br>
+                            <span style="font-size: 9px; color: #0f172a;">H2: ₹{nw_h2:.1f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
-                            <span style="font-size: 10px; color: #0f172a;">🔴 L1: ₹{nw_l1:.2f}</span><br>
-                            <span style="font-size: 10px; color: #0f172a;">🔴 L2: ₹{nw_l2:.2f}</span>
+                            <div style="font-size: 8px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOW</div>
+                            <span style="font-size: 9px; color: #0f172a;">L1: ₹{nw_l1:.1f}</span><br>
+                            <span style="font-size: 9px; color: #0f172a;">L2: ₹{nw_l2:.1f}</span>
                         </div>
                     </div>
                 </div>
