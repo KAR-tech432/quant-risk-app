@@ -82,13 +82,14 @@ if ticker:
         ])
         bull = bull_score >= 2
 
+        # Plain English Decision & Advice
         if bull:
             action_advice = "ACCUMULATE / BUY"
-            story = f"Multiple quantitative models align positively. Price trades above institutional fair value (VWAP ₹{vwap:.2f}), signaling solid buyer defense."
+            story = f"Buyers are active and stepping in to push the price up. The stock is trading safely above the fair average price (₹{vwap:.2f}), showing strong buyer support. <b>Decision:</b> Good time to consider buying or building a position."
             card_bg, border_c, accent_c = "#ecfdf5", "#059669", "#047857"
         else:
-            action_advice = "SELL / HOLD CAUTIOUSLY"
-            story = f"Models indicate distribution pressure. Price trades below institutional fair value (VWAP ₹{vwap:.2f}) and key averages, suggesting seller control."
+            action_advice = "DO NOT BUY / HOLD OFF"
+            story = f"Sellers are currently in control and pushing the price down. The stock is trading below the fair average price (₹{vwap:.2f}), showing that big buyers are absent. <b>Decision:</b> Better to wait and protect your money."
             card_bg, border_c, accent_c = "#fef2f2", "#dc2626", "#b91c1c"
 
         nc_h = min(p + (atr * 0.12), bb_upper)
@@ -127,10 +128,10 @@ if ticker:
         with top_c1:
             st.markdown(f"""
                 <div class="card" style="background: {card_bg}; border: 2px solid {border_c};">
-                    <div class="title" style="color: {accent_c};">Ensemble Expert Decision</div>
+                    <div class="title" style="color: {accent_c};">Simple Plain-English Review</div>
                     <div style="font-size: 18px; font-weight: 900; color: {accent_c}; margin-top: 8px;">{action_advice}</div>
                     <div style="font-size: 12px; color: #0f172a; line-height: 1.5; margin-top: 8px;">
-                        <b>Synthesis:</b> {story}
+                        {story}
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -216,7 +217,6 @@ if ticker:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("<div class='title'>Breakout Signal Pattern Matrix (Volume & Range Expansion)</div>", unsafe_allow_html=True)
         
-        # Calculate Breakout Intensity: Volume surge combined with price expansion beyond rolling mean
         vol_mean = vol.rolling(10).mean()
         vol_surge = np.where(vol > (vol_mean * 1.3), 1.5, 0.5)
         breakout_signal_flow = np.where(close > close.shift(1), vol_surge, -vol_surge)
