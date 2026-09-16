@@ -31,7 +31,7 @@ with c1:
     ex = ".NS" if ex_label == "NSE" else ".BO"
 with c2:
     inp = st.text_input(
-        "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY):",
+        "Enter Stock Ticker (e.g., IDEA, RELIANCE, TCS, INFY):",
         value="",
         placeholder="Type symbol...",
     ).upper()
@@ -53,16 +53,18 @@ if ticker:
                 )
                 st.stop()
 
-            # Ensure timezone-aware comparison or localize properly if needed
+            # Normalize timezone to avoid pandas resampling timezone mismatch errors
             if df_raw.index.tz is not None:
-                # Filter out pre-market before 09:15 AM
-                df_raw = df_raw.between_time('09:15', '15:30')
+                df_raw.index = df_raw.index.tz_localize(None)
+
+            # Filter regular market hours (09:15 to 15:30)
+            df_raw = df_raw.between_time('09:15', '15:30')
 
             if df_raw.empty:
                 st.error("❌ No data available within regular market hours (09:15 - 15:30).")
                 st.stop()
 
-            # Anchor resampling strictly to 09:15 AM market open boundary
+            # Resample strictly into 10-minute market blocks starting from 09:15:00
             df_candles = df_raw.resample('10min', origin='09:15:00', closed='left', label='left').agg({
                 'Open': 'first',
                 'High': 'max',
@@ -149,7 +151,6 @@ if ticker:
         
         formatted_rows = []
         for _, row in display_df.iterrows():
-            # Format timestamp cleanly to HH:MM format starting from 09:15, 09:25, 09:35...
             dt_val = pd.to_datetime(row[time_col])
             t_stamp = dt_val.strftime('%H:%M')
             
