@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, time, timezone, timedelta
 
-st.set_page_config(page_title="Simple Quant Terminal - IST Edition", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Master Quant Terminal - IST Edition", page_icon="🏛️", layout="wide")
 
 # High-Visibility Daylight Theme CSS
 st.markdown("""
@@ -30,19 +30,26 @@ if ticker:
     @st.cache_data(ttl=5)
     def pull_data(t):
         stock = yf.Ticker(t)
-        df = stock.history(period="1mo", interval="1d")
-        if df.empty:
-            df = stock.history(period="5d", interval="1h")
-        return df.tz_localize(None) if not df.empty and df.index.tz is not None else df
+        df = stock.history(period="2mo", interval="1d")
+        if not df.empty and df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+        return df
 
     df = pull_data(ticker)
-    if df.empty:
-        st.error(f"❌ Could not load data for '{ticker}'. Please check the spelling.")
+    if df.empty or len(df) < 15:
+        st.error(f"❌ Could not load sufficient data for '{ticker}'. Please check the spelling.")
     else:
+        # True ATR Calculation (14 periods) to prevent wild scaling
+        df['HL'] = df['High'] - df['Low']
+        df['HC'] = abs(df['High'] - df['Close'].shift(1))
+        df['LC'] = abs(df['Low'] - df['Close'].shift(1))
+        df['TR'] = df[['HL', 'HC', 'LC']].max(axis=1)
+        atr = float(df['TR'].rolling(14).mean().iloc[-1])
+        
         p = float(df['Close'].iloc[-1])
-        op = float(df['Open'].iloc[0])
+        op = float(df['Open'].iloc[-1])
         chg = ((p - op) / op) * 100
-        H, L = float(df['High'].max()), float(df['Low'].min())
+        cur_h, cur_l = float(df['High'].iloc[-1]), float(df['Low'].iloc[-1])
         
         # Indian Stock Market Timing Logic (IST: 09:15 - 15:30)
         ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
@@ -58,9 +65,8 @@ if ticker:
         else:
             market_status = "🔴 Market is CLOSED (Showing Last Saved Prices)"
 
-        # Quantitative Logic
-        pp = (H + L + p) / 3
-        atr = H - L
+        # Classic Pivot Calculation using latest session
+        pp = (cur_h + cur_l + p) / 3
         bull = p >= pp
         
         # Plain English Recommendations & Colors
@@ -73,12 +79,12 @@ if ticker:
             story = "Sellers are currently in control and pushing prices down. It is safer to wait, hold off on buying, or exit existing positions to protect your money."
             card_bg, border_c, accent_c = "#fef2f2", "#dc2626", "#b91c1c"
 
-        # Projections
-        nc_h, nc_l = p + (atr / 25), p - (atr / 25)
-        nd_h1, nd_h2 = (2 * pp) - L, pp + atr
-        nd_l1, nd_l2 = (2 * pp) - H, pp - atr
-        nw_h1, nw_h2 = p + (atr * 1.1), p + (atr * 2.0)
-        nw_l1, nw_l2 = p - (atr * 1.1), p - (atr * 2.0)
+        # Realistic Projections using True ATR & Pivots
+        nc_h, nc_l = p + (atr * 0.15), p - (atr * 0.15)
+        nd_h1, nd_h2 = p + (atr * 0.5), p + (atr * 1.0)
+        nd_l1, nd_l2 = p - (atr * 0.5), p - (atr * 1.0)
+        nw_h1, nw_h2 = p + (atr * 1.5), p + (atr * 2.5)
+        nw_l1, nw_l2 = p - (atr * 1.5), p - (atr * 2.5)
 
         # Header Display
         st.markdown(f"<h2 style='margin:0; font-size:20px; color:#0f172a;'>📍 {ticker} | <span style='color:{accent_c};'>₹{p:.2f} ({chg:+.2f}%)</span></h2>", unsafe_allow_html=True)
@@ -112,7 +118,7 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Next Day Targets with Side-by-Side Highs & Lows
+            # Next Day Targets (Side-by-Side Highs & Lows - Realistic Scale)
             sub_c2.markdown(f"""
                 <div class="card">
                     <div class="title">Next Day Targets</div>
@@ -131,7 +137,7 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Next Week Targets with Side-by-Side Highs & Lows
+            # Next Week Targets (Side-by-Side Highs & Lows - Realistic Scale)
             sub_c3.markdown(f"""
                 <div class="card">
                     <div class="title">Next Week Targets</div>
