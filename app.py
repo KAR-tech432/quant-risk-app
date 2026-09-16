@@ -28,14 +28,22 @@ ticker = f"{sym.strip()}{ex}" if sym else None
 
 if ticker:
     @st.cache_data(ttl=5)
-    def pull_live_data(t):
+    def pull_data(t):
         stock = yf.Ticker(t)
+        # Daily history for metrics and formulas
         df = stock.history(period="3mo", interval="1d")
         if not df.empty and df.index.tz is not None:
             df.index = df.index.tz_localize(None)
-        return df
+        
+        # Intraday history for today's live chart (5m intervals)
+        idf = stock.history(period="1d", interval="5m")
+        if not idf.empty and idf.index.tz is not None:
+            idf.index = idf.index.tz_localize(None)
+            
+        return df, idf
 
-    df = pull_live_data(ticker)
+    df, idf = pull_data(ticker)
+    
     if df.empty or len(df) < 20:
         st.error(f"❌ Insufficient live telemetry data for '{ticker}'. Check symbol spelling.")
     else:
@@ -193,25 +201,29 @@ if ticker:
         # --- ADDITIONAL GRAPHS SECTION ---
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 1. Live Stock Moving Graph
+        # 1. Today's Live Intraday Price Graph (5m intervals)
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<div class='title'>Live Price Action Trend (Last 30 Sessions)</div>", unsafe_allow_html=True)
-        chart_df = close.tail(30).reset_index()
-        chart_df.columns = ['Date', 'ClosePrice']
-        chart_df = chart_df.set_index('Date')
-        st.line_chart(chart_df, color="#047857" if bull else "#b91c1c", height=220)
+        st.markdown("<div class='title'>Today's Live Intraday Price Chart (5-Minute Ticks)</div>", unsafe_allow_html=True)
+        if not idf.empty:
+            intraday_chart_df = idf[['Close']].copy()
+            intraday_chart_df.columns = ['Live Price']
+            st.line_chart(intraday_chart_df, color="#047857" if bull else "#b91c1c", height=230)
+        else:
+            st.info("Intraday live data is settling. Showing last settled state.")
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. Pattern & Momentum Direction Graph (UP/DOWN Structure Analysis)
+        # 2. Breakout Signals Pattern Graph
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<div class='title'>Pattern & Momentum Structural Flow (UP / DOWN Evaluation)</div>", unsafe_allow_html=True)
+        st.markdown("<div class='title'>Breakout Signal Pattern Matrix (Volume & Range Expansion)</div>", unsafe_allow_html=True)
         
-        # Create a rolling momentum structural indicator chart (+1 for bullish swing, -1 for bearish swing)
-        momentum_flow = np.where(close.diff() > 0, 1, -1).astype(float)
-        momentum_series = pd.Series(momentum_flow, index=close.index).tail(30)
-        mom_df = pd.DataFrame({'Structural Momentum': momentum_series})
+        # Calculate Breakout Intensity: Volume surge combined with price expansion beyond rolling mean
+        vol_mean = vol.rolling(10).mean()
+        vol_surge = np.where(vol > (vol_mean * 1.3), 1.5, 0.5)
+        breakout_signal_flow = np.where(close > close.shift(1), vol_surge, -vol_surge)
+        breakout_series = pd.Series(breakout_signal_flow, index=close.index).tail(30)
+        breakout_df = pd.DataFrame({'Breakout Momentum Signal': breakout_series})
         
-        st.bar_chart(mom_df, color="#059669" if bull else "#dc2626", height=180)
+        st.bar_chart(breakout_df, color="#059669" if bull else "#dc2626", height=190)
         st.markdown("</div>", unsafe_allow_html=True)
 
 else:
