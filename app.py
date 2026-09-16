@@ -199,31 +199,17 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-        # --- ADDITIONAL GRAPHS SECTION ---
+        # --- LIVE INTRADAY GRAPH SECTION ---
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 1. Today's Live Intraday Price Graph (5m intervals)
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("<div class='title'>Today's Live Intraday Price Chart (5-Minute Ticks)</div>", unsafe_allow_html=True)
         if not idf.empty:
             intraday_chart_df = idf[['Close']].copy()
             intraday_chart_df.columns = ['Live Price']
-            st.line_chart(intraday_chart_df, color="#047857" if bull else "#b91c1c", height=230)
+            st.line_chart(intraday_chart_df, color="#047857" if bull else "#b91c1c", height=250)
         else:
             st.info("Intraday live data is settling. Showing last settled state.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # 2. Breakout Signals Pattern Graph
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("<div class='title'>Breakout Signal Pattern Matrix (Volume & Range Expansion)</div>", unsafe_allow_html=True)
-        
-        vol_mean = vol.rolling(10).mean()
-        vol_surge = np.where(vol > (vol_mean * 1.3), 1.5, 0.5)
-        breakout_signal_flow = np.where(close > close.shift(1), vol_surge, -vol_surge)
-        breakout_series = pd.Series(breakout_signal_flow, index=close.index).tail(30)
-        breakout_df = pd.DataFrame({'Breakout Momentum Signal': breakout_series})
-        
-        st.bar_chart(breakout_df, color="#059669" if bull else "#dc2626", height=190)
         st.markdown("</div>", unsafe_allow_html=True)
 
 else:
