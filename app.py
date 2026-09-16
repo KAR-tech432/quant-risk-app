@@ -1,8 +1,12 @@
 import pandas as pd
 import streamlit as st
 import yfinance as yf
+from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Expert 30-Yr Institutional 10-Min Projections", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Expert 30-Yr Institutional Live Projections", page_icon="📈", layout="wide")
+
+# Automatically refresh the app every 10 seconds (10,000 milliseconds) for live data updates
+count = st_autorefresh(interval=10000, key="live_market_refresh")
 
 st.markdown(
     """
@@ -19,12 +23,12 @@ st.markdown(
 )
 
 st.markdown(
-    "<h2 style='color: white; margin-bottom: 0;'>Institutional 30-Yr Expert 10-Minute Market Predictor</h2>",
+    "<h2 style='color: white; margin-bottom: 0;'>Institutional 30-Yr Expert Live Market Predictor</h2>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
-c1, c2 = st.columns([1, 2])
+c1, c2, c3 = st.columns([1, 2, 1])
 with c1:
     ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
     ex = ".NS" if ex_label == "NSE" else ".BO"
@@ -34,6 +38,10 @@ with c2:
         value="",
         placeholder="Type symbol...",
     ).upper()
+with c3:
+    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+    if st.button("🔄 Refresh Live Data Now", use_container_width=True):
+        st.rerun()
 
 ticker = None
 if inp:
@@ -42,8 +50,9 @@ if inp:
 
 if ticker:
     try:
-        with st.spinner(f"Executing 30-year veteran algorithmic market analysis and high-conviction projection for {ticker}..."):
+        with st.spinner(f"Fetching live feed & executing 30-year veteran analysis for {ticker}..."):
             stock = yf.Ticker(ticker)
+            # Fetching latest 1-day interval data with 1-minute or 5-minute frequency for live updates
             df_raw = stock.history(period="1d", interval="5m")
 
             if df_raw.empty or len(df_raw) < 2:
@@ -103,7 +112,7 @@ if ticker:
         with hc1:
             st.markdown(
                 f"""<div class="card" style="padding: 22px 18px;">
-                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Institutional Feed)</span></h4>
+                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Live Feed Active)</span></h4>
                 <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Active Bars: <b>{len(df_candles)}</b></p>
                 <h4 style="margin:8px 0 0 0; color:#00d09c; font-size:18px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if session_chg >= 0 else '#eb5b3c'};">({session_chg:+.2f}%)</span></h4>
             </div>""",
@@ -133,7 +142,7 @@ if ticker:
         m4.metric("Analyst Conviction", f"{confidence_score}%", "Expert Grade")
 
         st.markdown("---")
-        st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records")
+        st.subheader("⚡ Live Market-Synced 10-Minute Candle Interval Records")
         
         display_df = df_candles.tail(10).reset_index()
         time_col = "Datetime" if "Datetime" in display_df.columns else ("Date" if "Date" in display_df.columns else display_df.columns[0])
@@ -165,9 +174,9 @@ if ticker:
 
     except Exception as e:
         st.error(
-            f"⚠️ Error executing expert analysis for {ticker}. Details: {e}"
+            f"⚠️ Error executing live market analysis for {ticker}. Details: {e}"
         )
 else:
     st.info(
-        "Please select your exchange and enter a stock ticker above to initialize the 30-year veteran expert projection engine."
+        "Please select your exchange and enter a stock ticker above to initialize the live auto-refreshing engine."
     )
