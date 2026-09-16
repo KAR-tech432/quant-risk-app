@@ -49,7 +49,7 @@ if ticker:
             df_intraday = stock.history(period="1d", interval="5m")
             # 2. Historical data for context
             df_hist = stock.history(period="10d")
-            # 3. Live News feed
+            # 3. Live News feed sentiment analysis
             news_list = stock.news if hasattr(stock, "news") else []
 
             if df_intraday.empty or df_hist.empty:
@@ -71,12 +71,10 @@ if ticker:
             is_bulk_selloff = (latest_volume > (avg_volume * 2.0)) and (df_intraday["Close"].iloc[-1] < df_intraday["Open"].iloc[-1])
             is_bulk_buying = (latest_volume > (avg_volume * 2.0)) and (df_intraday["Close"].iloc[-1] > df_intraday["Open"].iloc[-1])
 
-            # Simple sentiment analysis from recent news headlines
+            # Sentiment score calculation from headlines behind the scenes
             news_sentiment_score = 0
-            recent_headlines = []
             for item in news_list[:5]:
                 title = item.get("title", "") if isinstance(item, dict) else str(item)
-                recent_headlines.append(title)
                 t_lower = title.lower()
                 if any(w in t_lower for w in ["fall", "crash", "drop", "slump", "loss", "down", "sell"]):
                     news_sentiment_score -= 1
@@ -108,7 +106,6 @@ if ticker:
                 unsafe_allow_html=True,
             )
         with hc2:
-            # Updated, enlarged, prominent Live Order Flow Status Card based on all conditions
             st.markdown(
                 f"""<div class="card" style="background: {status_color}; color: #0f141e; text-align: center; padding: 22px 18px;">
                 <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">LIVE ORDER FLOW STATUS</div>
@@ -143,12 +140,6 @@ if ticker:
                 "Trend Outlook": "Bearish Pressure / Downside" if direction_mult < 0 else "Bullish Expansion / Upside"
             })
         st.dataframe(pd.DataFrame(proj_data), use_container_width=True)
-
-        if recent_headlines:
-            st.markdown("---")
-            st.subheader("📰 Live News Headlines Feed & Catalyst Context")
-            for h in recent_headlines[:3]:
-                st.markdown(f"- {h}")
 
     except Exception as e:
         st.error(
