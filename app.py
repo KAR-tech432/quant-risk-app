@@ -3,7 +3,6 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, time, timezone, timedelta
-import time as py_time
 
 st.set_page_config(page_title="Live Multi-Formula Quant Terminal", page_icon="🏛️", layout="wide")
 
@@ -114,6 +113,7 @@ if ticker:
         st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')})</div>", unsafe_allow_html=True)
         st.markdown("<hr style='border-color:#cbd5e1; margin:10px 0;'>", unsafe_allow_html=True)
 
+        # TOP ROW: Expert Decision, Previous Candle, Next Candle
         top_c1, top_c2, top_c3 = st.columns([2, 1, 1], gap="medium")
         
         with top_c1:
@@ -149,6 +149,7 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
+        # BOTTOM ROW: Next Day Targets & Next Week Targets Side-by-Side
         bot_c1, bot_c2 = st.columns(2, gap="medium")
 
         with bot_c1:
@@ -188,5 +189,30 @@ if ticker:
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+
+        # --- ADDITIONAL GRAPHS SECTION ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 1. Live Stock Moving Graph
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<div class='title'>Live Price Action Trend (Last 30 Sessions)</div>", unsafe_allow_html=True)
+        chart_df = close.tail(30).reset_index()
+        chart_df.columns = ['Date', 'ClosePrice']
+        chart_df = chart_df.set_index('Date')
+        st.line_chart(chart_df, color="#047857" if bull else "#b91c1c", height=220)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # 2. Pattern & Momentum Direction Graph (UP/DOWN Structure Analysis)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<div class='title'>Pattern & Momentum Structural Flow (UP / DOWN Evaluation)</div>", unsafe_allow_html=True)
+        
+        # Create a rolling momentum structural indicator chart (+1 for bullish swing, -1 for bearish swing)
+        momentum_flow = np.where(close.diff() > 0, 1, -1).astype(float)
+        momentum_series = pd.Series(momentum_flow, index=close.index).tail(30)
+        mom_df = pd.DataFrame({'Structural Momentum': momentum_series})
+        
+        st.bar_chart(mom_df, color="#059669" if bull else "#dc2626", height=180)
+        st.markdown("</div>", unsafe_allow_html=True)
+
 else:
     st.info("💡 Type an Indian stock ticker above (like TEJASNET, RELIANCE, or TCS) to execute the live multi-formula engine.")
