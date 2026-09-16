@@ -3,12 +3,9 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, time, timezone, timedelta
-from streamlit_autorefresh import st_autorefresh
+import time as py_time
 
 st.set_page_config(page_title="Live Multi-Formula Quant Terminal", page_icon="🏛️", layout="wide")
-
-# Enable Live Auto-Refresh every 1 Second (1000 milliseconds)
-st_autorefresh(interval=1000, limit=None, key="live_market_refresh")
 
 # High-Visibility Daylight Theme CSS
 st.markdown("""
@@ -31,8 +28,7 @@ run = c3.button("Run Live Engine", use_container_width=True)
 ticker = f"{sym.strip()}{ex}" if sym else None
 
 if ticker:
-    # Use zero TTL to pull fresh live prices every second
-    @st.cache_data(ttl=1)
+    @st.cache_data(ttl=5)
     def pull_live_data(t):
         stock = yf.Ticker(t)
         df = stock.history(period="3mo", interval="1d")
@@ -55,28 +51,22 @@ if ticker:
         chg = ((p - op) / op) * 100
         cur_h, cur_l = float(high.iloc[-1]), float(low.iloc[-1])
         
-        # Previous Candle Data Extraction
         prev_h = float(high.iloc[-2]) if len(high) > 1 else cur_h
         prev_l = float(low.iloc[-2]) if len(low) > 1 else cur_l
         
-        # 1. True Average True Range (ATR)
         tr = np.maximum(high - low, np.maximum(abs(high - close.shift(1)), abs(low - close.shift(1))))
         atr = float(tr.rolling(14).mean().iloc[-1])
         
-        # 2. Volume-Weighted Average Price (VWAP proxy)
         vwap = float((vol * (high + low + close) / 3).sum() / vol.sum()) if vol.sum() > 0 else p
         
-        # 3. Bollinger Bands (20-period, 2 std dev)
         sma20 = close.rolling(20).mean().iloc[-1]
         std20 = close.rolling(20).std().iloc[-1]
         bb_upper = sma20 + (2 * std20)
         bb_lower = sma20 - (2 * std20)
         
-        # 4. Pivot Points & Fibonacci Multipliers
         pp = (cur_h + cur_l + p) / 3
         swing_range = high.tail(10).max() - low.tail(10).min()
         
-        # Ensemble Consensus Scoring for Action Advice
         bull_score = sum([
             1 if p > pp else 0,
             1 if p > vwap else 0,
@@ -94,7 +84,6 @@ if ticker:
             story = f"Models indicate distribution pressure. Price trades below institutional fair value (VWAP ₹{vwap:.2f}) and key averages, suggesting seller control."
             card_bg, border_c, accent_c = "#fef2f2", "#dc2626", "#b91c1c"
 
-        # Multi-Model Ensembled Projections
         nc_h = min(p + (atr * 0.12), bb_upper)
         nc_l = max(p - (atr * 0.12), bb_lower)
         
@@ -108,7 +97,6 @@ if ticker:
         nw_l1 = p - (swing_range * 0.5) - (atr * 1.2)
         nw_l2 = p - swing_range - (atr * 2.0)
 
-        # Indian Stock Market Timing (IST: 09:15 - 15:30)
         ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         current_time = ist_now.time()
         market_open = time(9, 15)
@@ -122,12 +110,10 @@ if ticker:
         else:
             market_status = "🔴 Market is CLOSED (Showing Last Settled Session Data)"
 
-        # Header Display
         st.markdown(f"<h2 style='margin:0; font-size:20px; color:#0f172a;'>📍 {ticker} | <span style='color:{accent_c};'>₹{p:.2f} ({chg:+.2f}%)</span></h2>", unsafe_allow_html=True)
-        st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')}) | Auto-Refreshing Every Second</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')})</div>", unsafe_allow_html=True)
         st.markdown("<hr style='border-color:#cbd5e1; margin:10px 0;'>", unsafe_allow_html=True)
 
-        # TOP ROW: Expert Decision, Previous Candle, Next Candle
         top_c1, top_c2, top_c3 = st.columns([2, 1, 1], gap="medium")
         
         with top_c1:
@@ -163,7 +149,6 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-        # BOTTOM ROW: Next Day Targets & Next Week Targets Side-by-Side
         bot_c1, bot_c2 = st.columns(2, gap="medium")
 
         with bot_c1:
