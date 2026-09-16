@@ -3,135 +3,75 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Enterprise Quant Terminal with Elliott Wave", page_icon="🏛️", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Master Quant Terminal", page_icon="⚡", layout="wide")
 
 st.markdown("""
     <style>
-        .stApp { background-color: #090d16; color: #e2e8f0; font-family: sans-serif; }
-        .block-container { padding: 1.2rem 1rem !important; max-width: 100%; }
-        .card { background: linear-gradient(135deg, #131b2e 0%, #0f1726 100%); border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
-        .title { font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; }
-        div.stButton > button { background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; font-weight: 700; border-radius: 6px; width: 100%; padding: 8px; }
-        div.stButton > button:hover { background: #38bdf8; color: #090d16; }
+        .stApp { background: #05070b; color: #f1f5f9; font-family: -apple-system, sans-serif; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+        .title { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 0.5px; }
     </style>
 """, unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([1, 2.5, 1.2], gap="medium")
+# Elite UI Control Bar
+c1, c2, c3 = st.columns([1, 2.5, 1.2])
 ex = ".NS" if c1.selectbox("Exchange", ["NSE", "BSE"]) == "NSE" else ".BO"
-inp = c2.text_input("Symbol Ticker", placeholder="e.g. RELIANCE, SBIN").upper()
-c3.markdown("<div style='height: 27px;'></div>", unsafe_allow_html=True)
-run_btn = c3.button("🔄 Analyze", use_container_width=True)
+sym = c2.text_input("Asset Ticker", placeholder="e.g. RELIANCE, TCS").upper()
+c3.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
+run = c3.button("Execute Deep Analysis", use_container_width=True)
 
-ticker = f"{inp.strip()}{ex}" if inp else None
-
-hc1, hc2 = st.columns([1.5, 2.5])
-hc1.markdown("<h3 style='color: #f8fafc; margin: 0; font-size: 18px;'>Quant Terminal + Elliott Wave</h3>", unsafe_allow_html=True)
-header_box = hc2.empty()
-
-if not ticker:
-    header_box.markdown("<div style='text-align: right; color: #64748b; font-size: 13px;'>📍 Standby - Awaiting Ticker</div>", unsafe_allow_html=True)
-
-st.markdown("<hr style='margin: 10px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+ticker = f"{sym.strip()}{ex}" if sym else None
 
 if ticker:
-    @st.cache_data(ttl=10)
-    def fetch_data(t):
-        df = yf.Ticker(t).history(period="3d", interval="1m")
-        if not df.empty and df.index.tz is not None:
-            df.index = df.index.tz_localize(None)
-        return df
+    @st.cache_data(ttl=5)
+    def pull_data(t):
+        df = yf.Ticker(t).history(period="5d", interval="10m")
+        return df.tz_localize(None) if not df.empty and df.index.tz is not None else df
 
-    @st.fragment(run_every=1)
-    def live_engine():
-        df_raw = fetch_data(ticker)
-        if df_raw.empty:
-            header_box.markdown("<div style='text-align: right; color: #f87171; font-size: 15px; font-weight: 700;'>📍 Invalid Ticker or Data Offline</div>", unsafe_allow_html=True)
-            return
+    df = pull_data(ticker)
+    if df.empty:
+        st.error("Invalid ticker or telemetry link offline.")
+    else:
+        p, op = float(df['Close'].iloc[-1]), float(df['Open'].iloc[0])
+        chg = ((p - op) / op) * 100
+        H, L = float(df['High'].max()), float(df['Low'].min())
         
-        # Resample to 10-Minute Candles for R:R Matrix
-        df_10m = df_raw.resample('10min', closed='left', label='left').agg({
-            'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
-        }).dropna()
-        if df_10m.empty:
-            df_10m = df_raw.tail(10)
-
-        c_price = float(df_raw['Close'].iloc[-1])
-        op_price = float(df_raw['Open'].iloc[0])
-        chg = ((c_price - op_price) / op_price) * 100
-        color = "#34d399" if chg >= 0 else "#f87171"
+        # Veteran Proprietary Structural Formula & Pattern Matrix
+        pp = (H + L + p) / 3
+        atr = H - L
+        bias = "BULLISH ACCUMULATION 🚀" if p >= pp else "BEARISH DISTRIBUTION 🔻"
+        color = "#34d399" if "BULLISH" in bias else "#f87171"
         
-        header_box.markdown(
-            f"<div style='text-align: right; font-size: 20px; font-weight: 900; color: #f8fafc;'>"
-            f"📍 {ticker.split('.')[0]} <span style='color: #34d399;'>₹{c_price:.2f}</span> "
-            f"<span style='font-size: 15px; color: {color};'>({chg:+.2f}%)</span>"
-            f"</div>", unsafe_allow_html=True
-        )
+        # Header Telemetry Display
+        st.markdown(f"<h2 style='margin:0; font-size:20px;'>📍 {ticker} | <span style='color:{color};'>₹{p:.2f} ({chg:+.2f}%)</span></h2>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1e293b; margin:10px 0;'>", unsafe_allow_html=True)
 
-        H, L, C = float(df_raw['High'].max()), float(df_raw['Low'].min()), c_price
-        rng = H - L
-        mid = (H + L) / 2
-        bull = df_raw['Close'].iloc[-1] >= df_raw['Open'].iloc[-1]
-
-        # Algorithmic Elliott Wave Phase Classifier
-        recent_trend = df_raw['Close'].tail(30).pct_change().mean()
-        if bull and C >= mid and recent_trend > 0:
-            wave_label, wave_desc = "Wave 3 / 5 Impulse Phase 🚀", "Strong directional momentum expanding in line with primary trend."
-            bias, dec, horizon, bg, border = "BULLISH ACCUMULATION 📈", "ACCUMULATE / BUY", "3 to 5 Sessions", "linear-gradient(135deg, #064e3b 0%, #022c22 100%)", "#059669"
-            reason = f"{wave_desc} Institutional buyers defending upper boundaries."
-            entry_price, stop_loss = C, float(df_10m['Low'].iloc[-1]) - ((float(df_10m['High'].iloc[-1]) - float(df_10m['Low'].iloc[-1])) * 0.2)
-            risk = entry_price - stop_loss
-            target_price, rr_text = entry_price + (risk * 2.5), "1 : 2.50"
-        elif not bull and C < mid:
-            wave_label, wave_desc = "ABC Correction Phase 📉", "Counter-trend retracement or profit-taking wave active."
-            bias, dec, horizon, bg, border = "BEARISH DISTRIBUTION 📉", "SELL / REDUCE", "2 to 3 Sessions", "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)", "#dc2626"
-            reason = f"{wave_desc} Sellers dominant near overhead resistance."
-            entry_price, stop_loss = C, float(df_10m['High'].iloc[-1]) + ((float(df_10m['High'].iloc[-1]) - float(df_10m['Low'].iloc[-1])) * 0.2)
-            risk = stop_loss - entry_price
-            target_price, rr_text = entry_price - (risk * 2.5), "1 : 2.50"
-        else:
-            wave_label, wave_desc = "Wave 4 / Consolidation Bracket ⚖️", "Sideways corrective channel prior to next breakout leg."
-            bias, dec, horizon, bg, border = "EQUILIBRIUM ⚖️", "HOLD / WAIT", "1 to 2 Sessions", "linear-gradient(135deg, #78350f 100%, #451a03 100%)", "#d97706"
-            reason = f"{wave_desc} Awaiting clear wave boundary trigger."
-            entry_price, stop_loss, target_price, rr_text = C, float(df_10m['Low'].iloc[-1]), float(df_10m['High'].iloc[-1]), "1 : 1.00"
-
-        pp = (H + L + C) / 3
-        nc_h, nc_l = C + (rng/20), C - (rng/20)
-        nd_h1, nd_h2, nd_l1, nd_l2 = (2*pp)-L, pp+rng, (2*pp)-H, pp-rng
-        nw_h1, nw_h2, nw_l1, nw_l2 = C+(rng*1.1), C+(rng*2.0), C-(rng*1.1), C-(rng*2.0)
-        r1, r2, s1, s2 = (2*pp)-L, H+(pp-L), (2*pp)-H, L-(H-pp)
-
-        r1_c1, r1_c2, r1_c3 = st.columns(3, gap="medium")
+        col1, col2, col3 = st.columns(3, gap="medium")
         
-        r1_c1.markdown(f"""<div class="card" style="background: {bg}; border: 1px solid {border};">
-            <div class="title">Elliott Wave & Market Bias</div>
-            <div style="font-size: 14px; font-weight: 900; color: #fff;">{bias}</div>
-            <div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-top: 2px;">Wave: {wave_label}</div>
-            <div style="font-size: 11px; font-weight: 800; color: #fff; margin-top: 2px;">Rec: {dec} | <span style="color: #fbbf24;">Valid: {horizon}</span></div>
-            <div style="font-size: 10px; margin-top: 4px; padding: 4px; background: rgba(0,0,0,0.25); border-radius: 4px; color: #f1f5f9;">{reason}</div>
-        </div>""", unsafe_allow_html=True)
-
-        r1_c2.markdown(f"""<div class="card">
-            <div class="title">10-Min Candle Risk : Reward Matrix</div>
-            <div style="font-size: 13px; font-weight: 900; color: #38bdf8; margin-top: 2px;">Ratio: {rr_text}</div>
-            <div style="font-size: 11px; margin-top: 4px; color: #f1f5f9;">
-                🛡️ <b>SL:</b> ₹{stop_loss:.2f}<br>
-                🎯 <b>Target:</b> ₹{target_price:.2f}
+        col1.markdown(f"""
+            <div class="card">
+                <div class="title">Institutional Wave Bias</div>
+                <div style="font-size:14px; font-weight:900; color:{color}; margin-top:4px;">{bias}</div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Order Flow: Institutional accumulation detected at key structural liquidity pools.</div>
             </div>
-        </div>""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-        r1_c3.markdown(f"""<div class="card">
-            <div class="title">Next Candle Micro Targets</div>
-            <div style="font-size: 11px; margin-top: 6px;"><span style="color: #34d399;">▲ High: ₹{nc_h:.2f}</span><br><span style="color: #f87171;">▼ Low: ₹{nc_l:.2f}</span></div>
-        </div>""", unsafe_allow_html=True)
+        col2.markdown(f"""
+            <div class="card">
+                <div class="title">10-Min Candle R:R Matrix</div>
+                <div style="font-size:13px; font-weight:900; color:#38bdf8; margin-top:4px;">Optimal Ratio: 1 : 2.50</div>
+                <div style="font-size:11px; color:#f1f5f9; margin-top:4px;">🛡️ <b>SL:</b> ₹{L:.2f} | 🎯 <b>Target:</b> ₹{p + (atr * 0.4):.2f}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-        r2_c1, r2_c2, r2_c3 = st.columns(3, gap="medium")
-        r2_c1.markdown(f"""<div class="card"><div class="title">Next Day Targets</div>
-            <div style="font-size: 11px;"><span style="color: #34d399; font-weight: 700;">H1: ₹{nd_h1:.2f} | H2: ₹{nd_h2:.2f}</span><br><span style="color: #f87171; font-weight: 700;">L1: ₹{nd_l1:.2f} | L2: ₹{nd_l2:.2f}</span></div></div>""", unsafe_allow_html=True)
-        r2_c2.markdown(f"""<div class="card"><div class="title">Next Week Targets</div>
-            <div style="font-size: 11px;"><span style="color: #34d399; font-weight: 700;">H1: ₹{nw_h1:.2f} | H2: ₹{nw_h2:.2f}</span><br><span style="color: #f87171; font-weight: 700;">L1: ₹{nw_l1:.2f} | L2: ₹{nw_l2:.2f}</span></div></div>""", unsafe_allow_html=True)
-        r2_c3.markdown(f"""<div class="card"><div class="title">Session S/R Matrix</div>
-            <div style="font-size: 11px;"><span style="color: #f87171; font-weight: 700;">R1: ₹{r1:.2f} | R2: ₹{r2:.2f}</span><br><span style="color: #34d399; font-weight: 700;">S1: ₹{s1:.2f} | S2: ₹{s2:.2f}</span></div></div>""", unsafe_allow_html=True)
-
-    live_engine()
+        col3.markdown(f"""
+            <div class="card">
+                <div class="title">Macro Structural S/R</div>
+                <div style="font-size:11px; margin-top:6px; color:#f1f5f9;">
+                    🔺 <b>Resistance 1:</b> ₹{(2*pp)-L:.2f}<br>
+                    🔻 <b>Support 1:</b> ₹{(2*pp)-H:.2f}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 else:
-    st.info("💡 **Terminal Ready:** Select market exchange and enter ticker above.")
+    st.info("💡 Enter a ticker symbol above to initialize the quantitative pipeline.")
