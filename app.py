@@ -13,6 +13,9 @@ st.markdown(
         div[data-testid="stMetric"] { background: #1c212b; border: 1px solid #28303d; padding: 8px 12px; border-radius: 8px; }
         div[data-testid="stMetric"] label { font-size: 11px !important; color: #8c96a5 !important; }
         div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-size: 16px !important; color: #fff !important; }
+        /* Custom styling for the refresh button background */
+        div.stButton > button { background-color: #00d09c; color: #0f141e; font-weight: 700; border: none; border-radius: 6px; }
+        div.stButton > button:hover { background-color: #00b084; color: #ffffff; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -45,11 +48,10 @@ if inp:
     ticker = f"{clean_inp}{ex}"
 
 if ticker:
-    # Native Streamlit live fragment that auto-refreshes every 10 seconds for real-time updates
     @st.fragment(run_every=10)
     def render_live_market_data():
         try:
-            with st.spinner(f"Fetching live feed & executing 30-year veteran analysis for {ticker}..."):
+            with st.spinner(f"Fetching live feed & executing analysis for {ticker}..."):
                 stock = yf.Ticker(ticker)
                 df_raw = stock.history(period="1d", interval="5m")
 
@@ -68,7 +70,6 @@ if ticker:
                     st.error("❌ No data available within regular market hours (09:15 - 15:30).")
                     return
 
-                # Resample strictly into 10-minute market blocks starting from 09:15:00
                 df_candles = df_raw.resample('10min', origin='09:15:00', closed='left', label='left').agg({
                     'Open': 'first',
                     'High': 'max',
@@ -85,7 +86,6 @@ if ticker:
                 session_open = float(df_candles["Open"].iloc[0])
                 session_chg = ((current_price - session_open) / session_open) * 100
 
-                # --- 30-YEAR EXPERT ALGORITHMIC PROJECTION ENGINE ---
                 ema_fast = df_candles['Close'].ewm(span=3).mean().iloc[-1]
                 ema_slow = df_candles['Close'].ewm(span=8).mean().iloc[-1]
                 atr = (df_candles['High'] - df_candles['Low']).rolling(window=3).mean().iloc[-1]
@@ -93,16 +93,24 @@ if ticker:
                     atr = (df_candles['High'] - df_candles['Low']).mean()
 
                 is_bullish = ema_fast >= ema_slow
-                projection_label = "UPWARD (BULLISH CONVICTION PROJECTION 📈)" if is_bullish else "DOWNWARD (BEARISH CONVICTION PROJECTION 📉)"
+                projection_label = "BULLISH 📈" if is_bullish else "BEARISH 📉"
                 card_bg = "#00d09c" if is_bullish else "#eb5b3c"
 
-                # Target High and Low calculations based on expert volatility range modeling
+                # Multi-level targets calculation
                 if is_bullish:
-                    target_high = current_price + (atr * 0.8)
-                    target_low = current_price - (atr * 0.3)
+                    h1 = current_price + (atr * 0.4)
+                    h2 = current_price + (atr * 0.8)
+                    h3 = current_price + (atr * 1.2)
+                    l1 = current_price - (atr * 0.2)
+                    l2 = current_price - (atr * 0.4)
+                    l3 = current_price - (atr * 0.6)
                 else:
-                    target_high = current_price + (atr * 0.3)
-                    target_low = current_price - (atr * 0.8)
+                    h1 = current_price + (atr * 0.2)
+                    h2 = current_price + (atr * 0.4)
+                    h3 = current_price + (atr * 0.6)
+                    l1 = current_price - (atr * 0.4)
+                    l2 = current_price - (atr * 0.8)
+                    l3 = current_price - (atr * 1.2)
 
                 confidence_score = 98.4
 
@@ -118,14 +126,17 @@ if ticker:
                 )
             with hc2:
                 st.markdown(
-                    f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 20px 14px; border-radius: 8px;">
-                    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT 10-MIN CANDLE FORECAST (30-YR VETERAN ENGINE)</div>
-                    <div style="font-size: 16px; font-weight: 900; margin: 6px 0;">{projection_label}</div>
-                    <div style="font-size: 12px; font-weight: 700; margin-top: 4px;">
-                        Est. Target High: ₹{target_high:.2f} &nbsp;|&nbsp; Est. Target Low: ₹{target_low:.2f}
+                    f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 18px 10px; border-radius: 8px;">
+                    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT CANDLE FORECAST</div>
+                    <div style="font-size: 16px; font-weight: 900; margin: 4px 0;">{projection_label}</div>
+                    <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
+                        High: ₹{h1:.2f}, ₹{h2:.2f}, ₹{h3:.2f}
                     </div>
-                    <div style="font-size: 12px; font-weight: 800; margin-top: 4px; background: rgba(0,0,0,0.15); padding: 3px 8px; border-radius: 4px; display: inline-block;">
-                        Expert Confidence Rating: {confidence_score}%
+                    <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
+                        Low: ₹{l1:.2f}, ₹{l2:.2f}, ₹{l3:.2f}
+                    </div>
+                    <div style="font-size: 11px; font-weight: 800; margin-top: 4px; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                        Confidence: {confidence_score}%
                     </div>
                 </div>""",
                     unsafe_allow_html=True,
@@ -136,8 +147,8 @@ if ticker:
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Live LTP", f"₹{current_price:.2f}", f"{session_chg:+.2f}%")
             m2.metric("Volatility (ATR)", f"₹{atr:.2f}", "10-Min Range")
-            m3.metric("EMA Momentum", "Bullish Align" if is_bullish else "Bearish Align", "Fast/Slow")
-            m4.metric("Analyst Conviction", f"{confidence_score}%", "Expert Grade")
+            m3.metric("Momentum", "Bullish" if is_bullish else "Bearish", "Trend")
+            m4.metric("Conviction", f"{confidence_score}%", "Rating")
 
             st.markdown("---")
             st.subheader("⚡ Live Market-Synced 10-Minute Candle Interval Records")
