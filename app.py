@@ -112,26 +112,40 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
+            # Next Day Targets with Side-by-Side Highs & Lows
             sub_c2.markdown(f"""
                 <div class="card">
                     <div class="title">Next Day Targets</div>
-                    <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.4;">
-                        🟢 <b>High 1:</b> ₹{nd_h1:.2f}<br>
-                        🟢 <b>High 2:</b> ₹{nd_h2:.2f}<br>
-                        🔴 <b>Low 1:</b> ₹{nd_l1:.2f}<br>
-                        🔴 <b>Low 2:</b> ₹{nd_l2:.2f}
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
+                            <span style="font-size: 10px; color: #0f172a;">🟢 H1: ₹{nd_h1:.2f}</span><br>
+                            <span style="font-size: 10px; color: #0f172a;">🟢 H2: ₹{nd_h2:.2f}</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <span style="font-size: 10px; color: #0f172a;">🔴 L1: ₹{nd_l1:.2f}</span><br>
+                            <span style="font-size: 10px; color: #0f172a;">🔴 L2: ₹{nd_l2:.2f}</span>
+                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
+            # Next Week Targets with Side-by-Side Highs & Lows
             sub_c3.markdown(f"""
                 <div class="card">
                     <div class="title">Next Week Targets</div>
-                    <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.4;">
-                        🟢 <b>High 1:</b> ₹{nw_h1:.2f}<br>
-                        🟢 <b>High 2:</b> ₹{nw_h2:.2f}<br>
-                        🔴 <b>Low 1:</b> ₹{nw_l1:.2f}<br>
-                        🔴 <b>Low 2:</b> ₹{nw_l2:.2f}
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
+                            <span style="font-size: 10px; color: #0f172a;">🟢 H1: ₹{nw_h1:.2f}</span><br>
+                            <span style="font-size: 10px; color: #0f172a;">🟢 H2: ₹{nw_h2:.2f}</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <span style="font-size: 10px; color: #0f172a;">🔴 L1: ₹{nw_l1:.2f}</span><br>
+                            <span style="font-size: 10px; color: #0f172a;">🔴 L2: ₹{nw_l2:.2f}</span>
+                        </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
