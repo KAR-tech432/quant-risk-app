@@ -45,17 +45,25 @@ if ticker:
     try:
         with st.spinner(f"Synchronizing exact market-aligned 10-minute candles for {ticker}..."):
             stock = yf.Ticker(ticker)
-            # Fetch base intraday ticks
             df_raw = stock.history(period="1d", interval="5m")
 
             if df_raw.empty or len(df_raw) < 2:
                 st.error(
-                    f"❌ Live session data is currently unavailable for '{ticker}'. Please ensure the market session is active."
+                    f"❌ Live session data is currently unavailable for '{ticker}'. Ensure the market session is active."
                 )
                 st.stop()
 
-            # Anchor resampling directly to market session start (origin='start_day') to match exchange candle boundary timings
-            df_candles = df_raw.resample('10min', origin='start_day', closed='left', label='left').agg({
+            # Ensure timezone-aware comparison or localize properly if needed
+            if df_raw.index.tz is not None:
+                # Filter out pre-market before 09:15 AM
+                df_raw = df_raw.between_time('09:15', '15:30')
+
+            if df_raw.empty:
+                st.error("❌ No data available within regular market hours (09:15 - 15:30).")
+                st.stop()
+
+            # Anchor resampling strictly to 09:15 AM market open boundary
+            df_candles = df_raw.resample('10min', origin='09:15:00', closed='left', label='left').agg({
                 'Open': 'first',
                 'High': 'max',
                 'Low': 'min',
@@ -93,7 +101,7 @@ if ticker:
                 f"""<div class="card" style="background: {status_color}; color: #0f141e; text-align: center; padding: 22px 18px;">
                 <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">ACTIVE 10-MIN BAR STATUS</div>
                 <div style="font-size: 20px; font-weight: 900; margin: 6px 0;">{status_text}</div>
-                <div style="font-size: 12px; font-weight: 600;">Aligned with live market session candle blocks.</div>
+                <div style="font-size: 12px; font-weight: 600;">Aligned starting strictly from 09:15 AM open.</div>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -134,14 +142,17 @@ if ticker:
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records")
+        st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records (09:15, 09:25, 09:35...)")
         
         display_df = df_candles.tail(10).reset_index()
         time_col = "Datetime" if "Datetime" in display_df.columns else ("Date" if "Date" in display_df.columns else display_df.columns[0])
         
         formatted_rows = []
         for _, row in display_df.iterrows():
-            t_stamp = str(row[time_col])
+            # Format timestamp cleanly to HH:MM format starting from 09:15, 09:25, 09:35...
+            dt_val = pd.to_datetime(row[time_col])
+            t_stamp = dt_val.strftime('%H:%M')
+            
             c_open = float(row["Open"])
             c_high = float(row["High"])
             c_low = float(row["Low"])
