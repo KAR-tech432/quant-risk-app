@@ -18,7 +18,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Determine Ticker early to display in the header
 c1, c2, c3 = st.columns([1, 2, 1])
 with c1:
     ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
@@ -39,20 +38,15 @@ if inp:
     clean_inp = inp.replace(".NS", "").replace(".BO", "").replace(".BS", "").strip()
     ticker = f"{clean_inp}{ex}"
 
-# Top-Right Stock Name Header Row
+# Top Header Layout
 hc_title, hc_stock = st.columns([2, 2])
 with hc_title:
     st.markdown("<h2 style='color: white; margin: 0;'>Live Market Forecast</h2>", unsafe_allow_html=True)
-with hc_stock:
-    if ticker:
-        try:
-            temp_stock = yf.Ticker(ticker)
-            co_name = temp_stock.info.get('longName', ticker)
-        except:
-            co_name = ticker
-        st.markdown(f"<div style='text-align: right; color: #00d09c; font-size: 18px; font-weight: 800; padding-top: 6px;'>📍 {co_name} ({ticker})</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 10px;'>📍 No Stock Selected</div>", unsafe_allow_html=True)
+
+# Dynamic Placeholder for Stock Name with CMP at Top Right
+header_stock_placeholder = hc_stock.empty()
+if not ticker:
+    header_stock_placeholder.markdown("<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 10px;'>📍 No Stock Selected</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -62,12 +56,18 @@ if ticker:
         try:
             with st.spinner(f"Running quantitative calculation & live telemetry for {ticker}..."):
                 stock = yf.Ticker(ticker)
+                
+                # Fetch company name safely
+                try:
+                    co_name = stock.info.get('longName', ticker)
+                except:
+                    co_name = ticker
+
                 df_raw = stock.history(period="1d", interval="5m")
 
                 if df_raw.empty or len(df_raw) < 2:
-                    st.error(
-                        f"❌ Live session data is currently unavailable for '{ticker}'. Please ensure the market session is active."
-                    )
+                    header_stock_placeholder.markdown(f"<div style='text-align: right; color: #eb5b3c; font-size: 13px; padding-top: 6px;'>📍 {co_name} (Session Inactive)</div>", unsafe_allow_html=True)
+                    st.error(f"❌ Live session data is currently unavailable for '{ticker}'. Please ensure the market session is active.")
                     return
 
                 if df_raw.index.tz is not None:
@@ -94,6 +94,16 @@ if ticker:
                 current_price = float(df_candles["Close"].iloc[-1])
                 session_open = float(df_candles["Open"].iloc[0])
                 session_chg = ((current_price - session_open) / session_open) * 100
+                chg_color = "#00d09c" if session_chg >= 0 else "#eb5b3c"
+
+                # Update Top Right Header with Stock Name + CMP + Change
+                header_stock_placeholder.markdown(
+                    f"<div style='text-align: right; color: #f0f4f8; font-size: 14px; font-weight: 700; padding-top: 4px;'>"
+                    f"📍 {co_name} <span style='color: #00d09c;'>| CMP: ₹{current_price:.2f}</span> "
+                    f"<span style='color: {chg_color}; font-size: 12px;'>({session_chg:+.2f}%)</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
 
                 # --- RIGOROUS QUANTITATIVE PREDICTION ENGINE ---
                 df_candles['Returns'] = df_candles['Close'].pct_change()
