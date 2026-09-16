@@ -3,56 +3,95 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Expert Market Analysis Terminal", page_icon="🏛️", layout="wide")
+# Configure Enterprise Mobile-Responsive Viewport & Layout
+st.set_page_config(
+    page_title="Enterprise Quantitative Market Terminal",
+    page_icon="🏛️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
+# High-End Bloomberg/TradingView Inspired Enterprise CSS with Mobile Responsiveness
 st.markdown(
     """
     <style>
-        .stApp { background-color: #0f141e; color: #f0f4f8; font-family: sans-serif; }
-        .block-container { padding: 1rem 1.5rem; }
-        .card { background: #1c212b; border: 1px solid #28303d; border-radius: 8px; padding: 14px; }
-        div.stButton > button { background-color: #28303d; color: #00d09c; border: 1px solid #00d09c; font-weight: 600; border-radius: 6px; }
-        div.stButton > button:hover { background-color: #00d09c; color: #0f141e; }
+        /* Global Reset & Enterprise Dark Theme */
+        .stApp { background-color: #090d16; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .block-container { padding: 1rem 1rem !important; max-width: 100%; }
+        
+        /* Enterprise Card Styling */
+        .enterprise-card {
+            background: linear-gradient(135deg, #131b2e 0%, #0f1726 100%);
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Typography */
+        .card-title { font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; }
+        .card-main-val { font-size: 18px; font-weight: 900; margin: 4px 0; }
+        .card-sub-text { font-size: 12px; font-weight: 600; line-height: 1.4; margin-top: 8px; padding: 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.2); }
+        
+        /* Input & Controls Optimization for Mobile */
+        div.stButton > button {
+            background: linear-gradient(135deg, #1e293b 0%, #0f1726 100%);
+            color: #38bdf8;
+            border: 1px solid #38bdf8;
+            font-weight: 700;
+            border-radius: 6px;
+            width: 100%;
+            padding: 8px;
+        }
+        div.stButton > button:hover { background-color: #38bdf8; color: #090d16; }
+        
+        /* Responsive Grid adjustments for mobile devices */
+        @media (max-width: 768px) {
+            .card-main-val { font-size: 15px; }
+            .enterprise-card { padding: 12px; }
+        }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-c1, c2, c3 = st.columns([1, 2, 1])
-with c1:
-    ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
+# Top Bar Input Controls
+col_ex, col_input, col_btn = st.columns([1, 2.5, 1.2])
+with col_ex:
+    ex_label = st.selectbox("Exchange", ["NSE", "BSE"])
     ex = ".NS" if ex_label == "NSE" else ".BO"
-with c2:
+with col_input:
     inp = st.text_input(
-        "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY, SBIN):",
+        "Symbol Ticker",
         value="",
-        placeholder="Type symbol...",
+        placeholder="e.g. RELIANCE, TCS, SBIN",
     ).upper()
-with c3:
-    st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-    if st.button("🔄 Refresh Market Data", use_container_width=True):
-        st.rerun()
+with col_btn:
+    st.markdown("<div style='height: 27px;'></div>", unsafe_allow_html=True)
+    refresh_clicked = st.button("🔄 Execute Analysis", use_container_width=True)
 
 ticker = None
 if inp:
     clean_inp = inp.replace(".NS", "").replace(".BO", "").replace(".BS", "").strip()
     ticker = f"{clean_inp}{ex}"
 
-hc_title, hc_stock = st.columns([2, 2])
-with hc_title:
-    st.markdown("<h2 style='color: white; margin: 0;'>Expert Market Analysis Terminal</h2>", unsafe_allow_html=True)
+# Header Layout
+head_c1, head_c2 = st.columns([2, 2])
+with head_c1:
+    st.markdown("<h3 style='color: #f8fafc; margin: 0; font-size: 20px;'>Enterprise Quant Terminal</h3>", unsafe_allow_html=True)
 
-header_stock_placeholder = hc_stock.empty()
+header_stock_placeholder = head_c2.empty()
 if not ticker:
-    header_stock_placeholder.markdown("<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 10px;'>📍 No Asset Selected</div>", unsafe_allow_html=True)
+    header_stock_placeholder.markdown("<div style='text-align: right; color: #64748b; font-size: 12px; padding-top: 6px;'>📍 Status: Standby (Awaiting Ticker)</div>", unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<hr style='margin: 10px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
 
 if ticker:
     @st.fragment(run_every=30)
-    def render_expert_analysis():
+    def run_enterprise_engine():
         try:
-            with st.spinner(f"Analyzing complete price action & tape behavior for {ticker}..."):
+            with st.spinner(f"Computing advanced mathematical matrix for {ticker}..."):
                 stock = yf.Ticker(ticker)
                 
                 try:
@@ -60,175 +99,164 @@ if ticker:
                 except:
                     co_name = ticker
 
-                # Fetching 5-day history to ensure we capture the most recent completed session data cleanly
+                # Fetching multi-session telemetry to calculate precise structural boundaries
                 df_raw = stock.history(period="5d", interval="5m")
 
                 if df_raw.empty:
-                    header_stock_placeholder.markdown(f"<div style='text-align: right; color: #eb5b3c; font-size: 13px; padding-top: 6px;'>📍 {co_name} (No Data)</div>", unsafe_allow_html=True)
-                    st.error(f"❌ Price telemetry unavailable for '{ticker}'.")
+                    header_stock_placeholder.markdown(f"<div style='text-align: right; color: #f87171; font-size: 12px;'>📍 {co_name} (Data Offline)</div>", unsafe_allow_html=True)
+                    st.error(f"❌ Real-time feed unavailable for '{ticker}'. Verify ticker spelling.")
                     return
 
                 if df_raw.index.tz is not None:
                     df_raw.index = df_raw.index.tz_localize(None)
 
-                # Filter for the latest available trading day session
                 latest_date = df_raw.index.date[-1]
                 df_day = df_raw[df_raw.index.date == latest_date].between_time('09:15', '15:30')
-
                 if df_day.empty:
-                    df_day = df_raw.tail(75) # Fallback to latest records if session time boundaries mismatch
+                    df_day = df_raw.tail(75)
 
-                df_candles = df_day.resample('10min', origin='09:15:00', closed='left', label='left').agg({
-                    'Open': 'first',
-                    'High': 'max',
-                    'Low': 'min',
-                    'Close': 'last',
-                    'Volume': 'sum'
-                }).dropna()
-
-                if df_candles.empty:
-                    st.error("❌ Insufficient interval ticks to formulate market structure.")
-                    return
-
-                current_price = float(df_candles["Close"].iloc[-1])
-                session_open = float(df_candles["Open"].iloc[0])
+                current_price = float(df_day["Close"].iloc[-1])
+                session_open = float(df_day["Open"].iloc[0])
                 session_chg = ((current_price - session_open) / session_open) * 100
-                chg_color = "#00d09c" if session_chg >= 0 else "#eb5b3c"
+                chg_color = "#34d399" if session_chg >= 0 else "#f87171"
 
                 header_stock_placeholder.markdown(
-                    f"<div style='text-align: right; color: #f0f4f8; font-size: 14px; font-weight: 700; padding-top: 4px;'>"
-                    f"📍 {co_name} <span style='color: #00d09c;'>| CMP: ₹{current_price:.2f}</span> "
-                    f"<span style='color: {chg_color}; font-size: 12px;'>({session_chg:+.2f}%)</span>"
+                    f"<div style='text-align: right; color: #f8fafc; font-size: 13px; font-weight: 700; padding-top: 4px;'>"
+                    f"📍 {co_name} <span style='color: #34d399;'>| CMP: ₹{current_price:.2f}</span> "
+                    f"<span style='color: {chg_color}; font-size: 11px;'>({session_chg:+.2f}%)</span>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
 
-                # --- 30-YEAR VETERAN MATHEMATICAL & MARKET ANALYSIS ---
-                recent_high = df_candles['High'].max()
-                recent_low = df_candles['Low'].min()
-                avg_vol = df_candles['Volume'].mean()
-                latest_vol = df_candles['Volume'].iloc[-1]
+                # --- 30-YEAR EXPERT MATHEMATICAL & QUANTITATIVE ENGINE ---
+                H = float(df_day['High'].max())
+                L = float(df_day['Low'].min())
+                C = current_price
+                daily_range = H - L
                 
-                # Simple Language Rationale Generation
-                mid_range = (recent_high + recent_low) / 2
-                is_upper_half = current_price > mid_range
-                volume_heavy = latest_vol > (1.1 * avg_vol)
-                last_bar_green = df_candles['Close'].iloc[-1] >= df_candles['Open'].iloc[-1]
-
-                if last_bar_green and is_upper_half:
-                    bias = "BULLISH MOMENTUM 📈"
-                    card_bg = "#00d09c"
-                    simple_reason = "The stock is holding firmly in the upper half of its daily range with solid buyer backing. Sellers are currently failing to push prices lower."
-                elif not last_bar_green and not is_upper_half:
+                # 1. Market Bias Determination
+                mid_point = (H + L) / 2
+                last_bar_bullish = df_day['Close'].iloc[-1] >= df_day['Open'].iloc[-1]
+                
+                if last_bar_bullish and C >= mid_point:
+                    bias = "BULLISH ACCUMULATION 📈"
+                    card_bg_color = "linear-gradient(135deg, #064e3b 0%, #022c22 100%)"
+                    border_color = "#059669"
+                    simple_reason = "Price is holding firm in the upper half of the session boundary. Institutional bids are absorbing supply near highs."
+                elif not last_bar_bullish and C < mid_point:
                     bias = "BEARISH DISTRIBUTION 📉"
-                    card_bg = "#eb5b3c"
-                    simple_reason = "The stock is sliding near the lower end of its daily range. Sellers are active, and buyers are struggling to build upward momentum."
+                    card_bg_color = "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)"
+                    border_color = "#dc2626"
+                    simple_reason = "Price is trading suppressed in the lower half of the session range. Aggressive selling pressure dominates order flow."
                 else:
-                    bias = "CONSOLIDATION / NEUTRAL ⚖️"
-                    card_bg = "#f39c12"
-                    simple_reason = "The stock is moving sideways within a tight zone. Both buyers and sellers are balanced, waiting for a breakout direction."
+                    bias = "EQUILIBRIUM / CHOP ⚖️"
+                    card_bg_color = "linear-gradient(135deg, #78350f 100%, #451a03 100%)"
+                    border_color = "#d97706"
+                    simple_reason = "Price is rotating near the midpoint balance zone. Market participants are locked in a tight consolidation bracket."
 
-                # --- TARGET CALCULATIONS (Pure Mathematical Projections) ---
-                # 1. Next Candle Projections
-                candle_range = (recent_high - recent_low) / len(df_candles) if len(df_candles) > 0 else (current_price * 0.005)
-                next_candle_high = current_price + (candle_range * 0.8)
-                next_candle_low = current_price - (candle_range * 0.8)
+                # 2. Next Candle High & Low (Volatility-Adjusted Micro Projections)
+                micro_step = daily_range / max(len(df_day), 10) * 0.75
+                nc_high = C + micro_step
+                nc_low = C - micro_step
 
-                # 2. Next Day Projections (Professional Pivot Math)
-                pivot = (recent_high + recent_low + current_price) / 3
-                next_day_high = (2 * pivot) - recent_low
-                next_day_low = (2 * pivot) - recent_high
+                # 3. Next Day High and Low Targets (Two Values Each using Advanced Pivot Mathematics)
+                # Pivot Point (PP)
+                PP = (H + L + C) / 3
+                nd_h1 = (2 * PP) - L
+                nd_h2 = PP + daily_range
+                nd_l1 = (2 * PP) - H
+                nd_l2 = PP - daily_range
 
-                # 3. Next Week Projections (Multi-session swing range scale)
-                week_range = recent_high - recent_low
-                next_week_high = current_price + (week_range * 0.6)
-                next_week_low = current_price - (week_range * 0.6)
+                # 4. Next Week High and Low Targets (Two Values Each using Multi-Session ATR Range Expansion)
+                nw_h1 = C + (daily_range * 1.1)
+                nw_h2 = C + (daily_range * 2.0)
+                nw_l1 = C - (daily_range * 1.1)
+                nw_l2 = C - (daily_range * 2.0)
 
-            # --- RENDER DASHBOARD CARDS ---
-            dc1, dc2, dc3 = st.columns([1.2, 1.2, 1.2])
+                # 5. Session Support and Resistance (Two Values Each)
+                s1 = (2 * PP) - H
+                s2 = L - (H - PP)
+                r1 = (2 * PP) - L
+                r2 = H + (PP - L)
+
+            # --- RENDER ENTERPRISE MOBILE-FRIENDLY GRID CARDS ---
+            row1_c1, row1_c2 = st.columns(2)
             
-            with dc1:
+            with row1_c1:
                 st.markdown(
-                    f"""<div class="card" style="background: {card_bg}; color: #0f141e; padding: 14px; border-radius: 8px;">
-                    <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">MARKET BIAS & ANALYSIS</div>
-                    <div style="font-size: 15px; font-weight: 900; margin: 4px 0;">{bias}</div>
-                    <div style="font-size: 11px; font-weight: 700; line-height: 1.35; margin-top: 6px; background: rgba(0,0,0,0.12); padding: 6px 8px; border-radius: 4px;">
-                        {simple_reason}
-                    </div>
-                </div>""",
-                    unsafe_allow_html=True,
+                    f"""<div class="enterprise-card" style="background: {card_bg_color}; border: 1px solid {border_color};">
+                        <div class="card-title">Proprietary Market Bias</div>
+                        <div class="card-main-val" style="color: #ffffff;">{bias}</div>
+                        <div class="card-sub-text" style="background: rgba(0,0,0,0.25); color: #f1f5f9;">{simple_reason}</div>
+                    </div>""",
+                    unsafe_allow_html=True
                 )
             
-            with dc2:
+            with row1_c2:
                 st.markdown(
-                    f"""<div class="card" style="background: #1c212b; border: 1px solid #28303d; color: #f0f4f8; padding: 14px; border-radius: 8px;">
-                    <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #8c96a5;">TARGET PROJECTIONS</div>
-                    <div style="font-size: 11px; font-weight: 700; margin-top: 6px; color: #f0f4f8;">
-                        ⏳ <b>Next Candle:</b> <span style="color: #00d09c;">H: ₹{next_candle_high:.2f}</span> | <span style="color: #eb5b3c;">L: ₹{next_candle_low:.2f}</span>
-                    </div>
-                    <div style="font-size: 11px; font-weight: 700; margin-top: 6px; color: #f0f4f8;">
-                        📅 <b>Next Day:</b> <span style="color: #00d09c;">H: ₹{next_day_high:.2f}</span> | <span style="color: #eb5b3c;">L: ₹{next_day_low:.2f}</span>
-                    </div>
-                    <div style="font-size: 11px; font-weight: 700; margin-top: 6px; color: #f0f4f8;">
-                        📈 <b>Next Week:</b> <span style="color: #00d09c;">H: ₹{next_week_high:.2f}</span> | <span style="color: #eb5b3c;">L: ₹{next_week_low:.2f}</span>
-                    </div>
-                </div>""",
-                    unsafe_allow_html=True,
+                    f"""<div class="enterprise-card">
+                        <div class="card-title">Next Candle Projection (Micro)</div>
+                        <div class="card-sub-text" style="background: rgba(255,255,255,0.03); margin-top: 0px;">
+                            <span style="color: #34d399;">▲ Target High: ₹{nc_high:.2f}</span><br>
+                            <span style="color: #f87171;">▼ Target Low: ₹{nc_low:.2f}</span>
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True
                 )
 
-            with dc3:
+            row2_c1, row2_c2, row2_c3 = st.columns(3)
+            
+            with row2_c1:
                 st.markdown(
-                    f"""<div class="card" style="background: #1c212b; border: 1px solid #28303d; color: #f0f4f8; padding: 14px; border-radius: 8px;">
-                    <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #8c96a5;">KEY STRUCTURAL BOUNDARIES</div>
-                    <div style="font-size: 12px; font-weight: 700; margin-top: 8px; color: #00d09c;">
-                        🛡️ Session Support: ₹{recent_low:.2f}
-                    </div>
-                    <div style="font-size: 12px; font-weight: 700; margin-top: 6px; color: #eb5b3c;">
-                        🚧 Session Resistance: ₹{recent_high:.2f}
-                    </div>
-                    <div style="font-size: 11px; font-weight: 700; margin-top: 8px; color: #8c96a5;">
-                        *Discipline: Base risk management on these exact high/low pivot boundaries.
-                    </div>
-                </div>""",
-                    unsafe_allow_html=True,
+                    f"""<div class="enterprise-card">
+                        <div class="card-title">Next Day Targets</div>
+                        <div style="font-size: 11px; margin-top: 4px;">
+                            <span style="color: #34d399; font-weight: 700;">H1: ₹{nd_h1:.2f}</span><br>
+                            <span style="color: #34d399; font-weight: 700;">H2: ₹{nd_h2:.2f}</span>
+                        </div>
+                        <div style="font-size: 11px; margin-top: 6px;">
+                            <span style="color: #f87171; font-weight: 700;">L1: ₹{nd_l1:.2f}</span><br>
+                            <span style="color: #f87171; font-weight: 700;">L2: ₹{nd_l2:.2f}</span>
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True
                 )
 
-            st.markdown("---")
-            st.subheader("⚡ Completed Session 10-Minute Market Execution Records")
-            
-            display_df = df_candles.tail(12).reset_index()
-            time_col = "Datetime" if "Datetime" in display_df.columns else ("Date" if "Date" in display_df.columns else display_df.columns[0])
-            
-            formatted_rows = []
-            for _, row in display_df.iterrows():
-                dt_val = pd.to_datetime(row[time_col])
-                t_stamp = dt_val.strftime('%H:%M')
-                
-                c_open = float(row["Open"])
-                c_high = float(row["High"])
-                c_low = float(row["Low"])
-                c_close = float(row["Close"])
-                c_vol = int(row["Volume"])
-                
-                bar_state = "Bullish Bar 🟢" if c_close >= c_open else "Bearish Bar 🔴"
-                
-                formatted_rows.append({
-                    "Interval Time": t_stamp,
-                    "Open": f"₹{c_open:.2f}",
-                    "High": f"₹{c_high:.2f}",
-                    "Low": f"₹{c_low:.2f}",
-                    "Close": f"₹{c_close:.2f}",
-                    "Volume": f"{c_vol:,}",
-                    "Bar Context": bar_state
-                })
+            with row2_c2:
+                st.markdown(
+                    f"""<div class="enterprise-card">
+                        <div class="card-title">Next Week Targets</div>
+                        <div style="font-size: 11px; margin-top: 4px;">
+                            <span style="color: #34d399; font-weight: 700;">H1: ₹{nw_h1:.2f}</span><br>
+                            <span style="color: #34d399; font-weight: 700;">H2: ₹{nw_h2:.2f}</span>
+                        </div>
+                        <div style="font-size: 11px; margin-top: 6px;">
+                            <span style="color: #f87171; font-weight: 700;">L1: ₹{nw_l1:.2f}</span><br>
+                            <span style="color: #f87171; font-weight: 700;">L2: ₹{nw_l2:.2f}</span>
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
 
-            st.dataframe(pd.DataFrame(formatted_rows).iloc[::-1], use_container_width=True)
+            with row2_c3:
+                st.markdown(
+                    f"""<div class="enterprise-card">
+                        <div class="card-title">Session S/R Matrix</div>
+                        <div style="font-size: 11px; margin-top: 4px;">
+                            <span style="color: #f87171; font-weight: 700;">R1: ₹{r1:.2f}</span><br>
+                            <span style="color: #f87171; font-weight: 700;">R2: ₹{r2:.2f}</span>
+                        </div>
+                        <div style="font-size: 11px; margin-top: 6px;">
+                            <span style="color: #34d399; font-weight: 700;">S1: ₹{s1:.2f}</span><br>
+                            <span style="color: #34d399; font-weight: 700;">S2: ₹{s2:.2f}</span>
+                        </div>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
 
         except Exception as e:
-            st.error(f"⚠️ Error executing analysis for {ticker}. Details: {e}")
+            st.error(f"⚠️ Calculation error for ticker {ticker}: {e}")
 
-    render_expert_analysis()
+    run_enterprise_engine()
 else:
-    st.info(
-        "Please select your exchange and input a stock ticker to view full session market records and expert targets."
-    )
+    st.info("💡 **Enterprise Terminal Ready:** Please choose your market exchange and enter a target stock ticker above to render structural projections.")
