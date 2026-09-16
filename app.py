@@ -13,19 +13,13 @@ st.markdown(
         .card { background: #1c212b; border: 1px solid #28303d; border-radius: 8px; padding: 12px; }
         div.stButton > button { background-color: #28303d; color: #00d09c; border: 1px solid #00d09c; font-weight: 600; border-radius: 6px; }
         div.stButton > button:hover { background-color: #00d09c; color: #0f141e; }
-        div[data-testid="stMetric"] { background: #1c212b; border: 1px solid #28303d; padding: 8px 12px; border-radius: 8px; }
-        div[data-testid="stMetric"] label { font-size: 11px !important; color: #8c96a5 !important; }
-        div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-size: 16px !important; color: #fff !important; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    "<h2 style='color: white; margin-bottom: 0;'>Live Market Forecast</h2>",
-    unsafe_allow_html=True,
-)
-st.markdown("---")
+# Placeholder container for top-right stock name header
+header_container = st.empty()
 
 c1, c2, c3 = st.columns([1, 2, 1])
 with c1:
@@ -46,6 +40,19 @@ ticker = None
 if inp:
     clean_inp = inp.replace(".NS", "").replace(".BO", "").replace(".BS", "").strip()
     ticker = f"{clean_inp}{ex}"
+
+# Render top header with stock name at the right top corner
+with header_container.container():
+    h_c1, h_c2 = st.columns([2, 1])
+    with h_c1:
+        st.markdown("<h2 style='color: white; margin-bottom: 0;'>Live Market Forecast</h2>", unsafe_allow_html=True)
+    with h_c2:
+        if ticker:
+            st.markdown(f"<div style='text-align: right; color: #00d09c; font-size: 20px; font-weight: 800; padding-top: 6px;'>📍 {ticker}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 12px;'>No Stock Selected</div>", unsafe_allow_html=True)
+
+st.markdown("---")
 
 if ticker:
     @st.fragment(run_every=10)
@@ -87,7 +94,6 @@ if ticker:
                 session_chg = ((current_price - session_open) / session_open) * 100
 
                 # --- RIGOROUS QUANTITATIVE PREDICTION ENGINE ---
-                # 1. Volatility (ATR & Standard Deviation of Returns)
                 df_candles['Returns'] = df_candles['Close'].pct_change()
                 volatility_std = df_candles['Returns'].std()
                 if pd.isna(volatility_std) or volatility_std == 0:
@@ -97,7 +103,6 @@ if ticker:
                 if pd.isna(atr):
                     atr = (df_candles['High'] - df_candles['Low']).mean()
 
-                # 2. Momentum Indicators (EMA Crossover & Volume Weighting)
                 ema_fast = df_candles['Close'].ewm(span=3).mean().iloc[-1]
                 ema_slow = df_candles['Close'].ewm(span=8).mean().iloc[-1]
                 vol_mean = df_candles['Volume'].mean()
@@ -108,7 +113,6 @@ if ticker:
                 projection_label = "BULLISH 📈" if is_bullish else "BEARISH 📉"
                 card_bg = "#00d09c" if is_bullish else "#eb5b3c"
 
-                # 3. Statistical Next Candle Projections
                 multiplier = atr * 0.5 * vol_weight
                 if is_bullish:
                     target_high = current_price + multiplier
@@ -117,10 +121,9 @@ if ticker:
                     target_high = current_price + (multiplier * 0.4)
                     target_low = current_price - multiplier
 
-                # Dynamic Statistical Confidence based on momentum consistency & volume score
                 confidence_score = round(min(max(70.0 + (abs(ema_fast - ema_slow) / current_price * 5000) * vol_weight, 75.0), 99.5), 1)
 
-                # 4. Next Day Pivot Projections (Floor Trader Standard Method)
+                # Next Day Pivot Projections
                 day_high = df_candles['High'].max()
                 day_low = df_candles['High'].min()
                 pivot = (day_high + day_low + current_price) / 3
@@ -135,7 +138,7 @@ if ticker:
                 
                 next_day_conf = round(min(max(confidence_score * (1 - volatility_std * 5), 70.0), 98.0), 1)
 
-                # 5. Next 1 Week Projections (Multi-period Historical Volatility Scaling)
+                # Next 1 Week Projections
                 try:
                     df_week = stock.history(period="1mo")
                     if not df_week.empty:
@@ -157,7 +160,7 @@ if ticker:
                 
                 next_week_conf = round(min(max(next_day_conf * 0.95, 65.0), 95.0), 1)
 
-            # Display layout with 3 clear forecast cards side-by-side (First row removed)
+            # Display 3 Forecast Cards Side-by-Side
             hc1, hc2, hc3 = st.columns([1.2, 1.4, 1.4])
             with hc1:
                 st.markdown(
@@ -205,14 +208,6 @@ if ticker:
                 </div>""",
                     unsafe_allow_html=True,
                 )
-
-            st.markdown("---")
-
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Live LTP", f"₹{current_price:.2f}", f"{session_chg:+.2f}%")
-            m2.metric("Volatility (ATR)", f"₹{atr:.2f}", "10-Min Range")
-            m3.metric("EMA Momentum", "Bullish Align" if is_bullish else "Bearish Align", "Fast/Slow")
-            m4.metric("Quant Confidence", f"{confidence_score}%", "Model Score")
 
             st.markdown("---")
             st.subheader("⚡ Live Market-Synced 10-Minute Candle Interval Records")
