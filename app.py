@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 import yfinance as yf
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="Expert 30-Yr Institutional 10-Min Projections", page_icon="📈", layout="wide")
 
@@ -132,33 +131,6 @@ if ticker:
         m2.metric("Volatility (ATR)", f"₹{atr:.2f}", "10-Min Range")
         m3.metric("EMA Momentum", "Bullish Align" if is_bullish else "Bearish Align", "Fast/Slow")
         m4.metric("Analyst Conviction", f"{confidence_score}%", "Expert Grade")
-
-        st.markdown("---")
-
-        # --- INTERACTIVE LIVE 10-MINUTE CANDLESTICK CHART ---
-        st.subheader("📊 Interactive Live Market-Aligned 10-Minute Candlestick Graph")
-        
-        fig = go.Figure(data=[go.Candlestick(
-            x=df_candles.index,
-            open=df_candles['Open'],
-            high=df_candles['High'],
-            low=df_candles['Low'],
-            close=df_candles['Close'],
-            increasing_line_color='#00d09c',
-            decreasing_line_color='#eb5b3c',
-            name='10-Min Market Candles'
-        )])
-        
-        fig.update_layout(
-            paper_bgcolor='#0f141e',
-            plot_bgcolor='#1c212b',
-            font=dict(color='#f0f4f8'),
-            margin=dict(l=10, r=10, t=30, b=10),
-            xaxis=dict(title='Market Session Timestamps (10 Min: 09:15, 09:25, 09:35...)', gridcolor='#28303d', rangeslider=dict(visible=False)),
-            yaxis=dict(title='Price (₹)', gridcolor='#28303d'),
-            height=450
-        )
-        st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
         st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records")
