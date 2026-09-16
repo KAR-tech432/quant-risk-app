@@ -3,8 +3,12 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, time, timezone, timedelta
+from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Multi-Formula Master Quant Terminal", page_icon="🏛️", layout="wide")
+st.set_page_config(page_title="Live Multi-Formula Quant Terminal", page_icon="🏛️", layout="wide")
+
+# Enable Live Auto-Refresh every 1 Second (1000 milliseconds)
+st_autorefresh(interval=1000, limit=None, key="live_market_refresh")
 
 # High-Visibility Daylight Theme CSS
 st.markdown("""
@@ -20,24 +24,25 @@ st.markdown("""
 # Control Bar
 c1, c2, c3 = st.columns([1, 2.5, 1.2])
 ex = ".NS" if c1.selectbox("Exchange", ["NSE", "BSE"]) == "NSE" else ".BO"
-sym = c2.text_input("Asset Ticker", placeholder="e.g. RELIANCE, TCS, SBIN").upper()
+sym = c2.text_input("Asset Ticker", value="TEJASNET", placeholder="e.g. RELIANCE, TCS, TEJASNET").upper()
 c3.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
-run = c3.button("Run Multi-Formula Engine", use_container_width=True)
+run = c3.button("Run Live Engine", use_container_width=True)
 
 ticker = f"{sym.strip()}{ex}" if sym else None
 
 if ticker:
-    @st.cache_data(ttl=5)
-    def pull_data(t):
+    # Use zero TTL to pull fresh live prices every second
+    @st.cache_data(ttl=1)
+    def pull_live_data(t):
         stock = yf.Ticker(t)
         df = stock.history(period="3mo", interval="1d")
         if not df.empty and df.index.tz is not None:
             df.index = df.index.tz_localize(None)
         return df
 
-    df = pull_data(ticker)
+    df = pull_live_data(ticker)
     if df.empty or len(df) < 20:
-        st.error(f"❌ Insufficient telemetry data for '{ticker}'. Check symbol spelling.")
+        st.error(f"❌ Insufficient live telemetry data for '{ticker}'. Check symbol spelling.")
     else:
         # --- MULTI-FORMULA QUANTITATIVE ENGINE ---
         close = df['Close']
@@ -111,7 +116,7 @@ if ticker:
         is_weekday = ist_now.weekday() < 5
         
         if is_weekday and market_open <= current_time <= market_close:
-            market_status = "🟢 Market is OPEN Right Now"
+            market_status = "🟢 Market is OPEN (Live Sync Active)"
         elif is_weekday and current_time < market_open:
             market_status = "🟡 Pre-Market Time (Opens at 09:15 AM)"
         else:
@@ -119,13 +124,13 @@ if ticker:
 
         # Header Display
         st.markdown(f"<h2 style='margin:0; font-size:20px; color:#0f172a;'>📍 {ticker} | <span style='color:{accent_c};'>₹{p:.2f} ({chg:+.2f}%)</span></h2>", unsafe_allow_html=True)
-        st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')}) | Multi-Model Ensemble Active</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:12px; font-weight:700; color:#475569; margin-top:4px;'>{market_status} (IST: {ist_now.strftime('%H:%M:%S')}) | Auto-Refreshing Every Second</div>", unsafe_allow_html=True)
         st.markdown("<hr style='border-color:#cbd5e1; margin:10px 0;'>", unsafe_allow_html=True)
 
-        # Layout: 4 columns for metrics
-        col1, col2 = st.columns([1.3, 2.7], gap="medium")
+        # TOP ROW: Expert Decision, Previous Candle, Next Candle
+        top_c1, top_c2, top_c3 = st.columns([2, 1, 1], gap="medium")
         
-        with col1:
+        with top_c1:
             st.markdown(f"""
                 <div class="card" style="background: {card_bg}; border: 2px solid {border_c};">
                     <div class="title" style="color: {accent_c};">Ensemble Expert Decision</div>
@@ -136,13 +141,10 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-        with col2:
-            sub_c1, sub_c2, sub_c3, sub_c4 = st.columns(4, gap="small")
-            
-            # Previous Candle Card
-            sub_c1.markdown(f"""
+        with top_c2:
+            st.markdown(f"""
                 <div class="card">
-                    <div class="title">Prev Candle</div>
+                    <div class="title">Previous Candle</div>
                     <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.5;">
                         ▲ <b>High:</b> ₹{prev_h:.2f}<br>
                         ▼ <b>Low:</b> ₹{prev_l:.2f}
@@ -150,8 +152,8 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Next Candle Card
-            sub_c2.markdown(f"""
+        with top_c3:
+            st.markdown(f"""
                 <div class="card">
                     <div class="title">Next Candle</div>
                     <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.5;">
@@ -161,42 +163,45 @@ if ticker:
                 </div>
             """, unsafe_allow_html=True)
 
-            # Next Day Targets
-            sub_c3.markdown(f"""
+        # BOTTOM ROW: Next Day Targets & Next Week Targets Side-by-Side
+        bot_c1, bot_c2 = st.columns(2, gap="medium")
+
+        with bot_c1:
+            st.markdown(f"""
                 <div class="card">
-                    <div class="title">Next Day</div>
-                    <div style="display: flex; gap: 4px; margin-top: 6px;">
+                    <div class="title">Next Day Targets</div>
+                    <div style="display: flex; gap: 12px; margin-top: 6px;">
                         <div style="flex: 1;">
-                            <div style="font-size: 8px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGH</div>
-                            <span style="font-size: 9px; color: #0f172a;">H1: ₹{nd_h1:.1f}</span><br>
-                            <span style="font-size: 9px; color: #0f172a;">H2: ₹{nd_h2:.1f}</span>
+                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
+                            <span style="font-size: 11px; color: #0f172a;">🟢 H1: ₹{nd_h1:.2f}</span><br>
+                            <span style="font-size: 11px; color: #0f172a;">🟢 H2: ₹{nd_h2:.2f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 8px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOW</div>
-                            <span style="font-size: 9px; color: #0f172a;">L1: ₹{nd_l1:.1f}</span><br>
-                            <span style="font-size: 9px; color: #0f172a;">L2: ₹{nd_l2:.1f}</span>
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <span style="font-size: 11px; color: #0f172a;">🔴 L1: ₹{nd_l1:.2f}</span><br>
+                            <span style="font-size: 11px; color: #0f172a;">🔴 L2: ₹{nd_l2:.2f}</span>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Next Week Targets
-            sub_c4.markdown(f"""
+        with bot_c2:
+            st.markdown(f"""
                 <div class="card">
-                    <div class="title">Next Week</div>
-                    <div style="display: flex; gap: 4px; margin-top: 6px;">
+                    <div class="title">Next Week Targets</div>
+                    <div style="display: flex; gap: 12px; margin-top: 6px;">
                         <div style="flex: 1;">
-                            <div style="font-size: 8px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGH</div>
-                            <span style="font-size: 9px; color: #0f172a;">H1: ₹{nw_h1:.1f}</span><br>
-                            <span style="font-size: 9px; color: #0f172a;">H2: ₹{nw_h2:.1f}</span>
+                            <div style="font-size: 9px; font-weight: 800; color: #047857; margin-bottom: 2px;">HIGHS</div>
+                            <span style="font-size: 11px; color: #0f172a;">🟢 H1: ₹{nw_h1:.2f}</span><br>
+                            <span style="font-size: 11px; color: #0f172a;">🟢 H2: ₹{nw_h2:.2f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 8px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOW</div>
-                            <span style="font-size: 9px; color: #0f172a;">L1: ₹{nw_l1:.1f}</span><br>
-                            <span style="font-size: 9px; color: #0f172a;">L2: ₹{nw_l2:.1f}</span>
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <span style="font-size: 11px; color: #0f172a;">🔴 L1: ₹{nw_l1:.2f}</span><br>
+                            <span style="font-size: 11px; color: #0f172a;">🔴 L2: ₹{nw_l2:.2f}</span>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 else:
-    st.info("💡 Type an Indian stock ticker (like RELIANCE, TCS, or SBIN) above to execute the multi-formula engine.")
+    st.info("💡 Type an Indian stock ticker above (like TEJASNET, RELIANCE, or TCS) to execute the live multi-formula engine.")
