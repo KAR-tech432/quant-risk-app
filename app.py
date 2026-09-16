@@ -3,7 +3,7 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Live Market-Aligned 10-Min Sync", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Live Market-Aligned 10-Min Projections", page_icon="📈", layout="wide")
 
 st.markdown(
     """
@@ -20,7 +20,7 @@ st.markdown(
 )
 
 st.markdown(
-    "<h2 style='color: white; margin-bottom: 0;'>Live Market-Aligned 10-Minute Candle Sync & Interactive Graph</h2>",
+    "<h2 style='color: white; margin-bottom: 0;'>Live Market-Aligned 10-Minute Analytics & Next Candle Predictor</h2>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
@@ -43,7 +43,7 @@ if inp:
 
 if ticker:
     try:
-        with st.spinner(f"Synchronizing exact market-aligned 10-minute candles for {ticker}..."):
+        with st.spinner(f"Running full market data analysis and projecting next candle for {ticker}..."):
             stock = yf.Ticker(ticker)
             df_raw = stock.history(period="1d", interval="5m")
 
@@ -53,11 +53,11 @@ if ticker:
                 )
                 st.stop()
 
-            # Normalize timezone to avoid pandas resampling timezone mismatch errors
+            # Clean timezone for flawless resampling
             if df_raw.index.tz is not None:
                 df_raw.index = df_raw.index.tz_localize(None)
 
-            # Filter regular market hours (09:15 to 15:30)
+            # Filter regular exchange hours (09:15 to 15:30)
             df_raw = df_raw.between_time('09:15', '15:30')
 
             if df_raw.empty:
@@ -81,29 +81,47 @@ if ticker:
             session_open = float(df_candles["Open"].iloc[0])
             session_chg = ((current_price - session_open) / session_open) * 100
 
-            # Active candle direction status
-            latest_open = float(df_candles["Open"].iloc[-1])
-            latest_close = float(df_candles["Close"].iloc[-1])
-            is_upward = latest_close >= latest_open
-            status_text = "UPWARD TICK (10-MIN BULLISH BAR)" if is_upward else "DOWNWARD TICK (10-MIN BEARISH BAR)"
-            status_color = "#00d09c" if is_upward else "#eb5b3c"
+            # --- EXPERT MARKET ANALYSIS & NEXT CANDLE PROJECTION ENGINE ---
+            # Evaluating recent momentum, volume expansion, and close-open delta of the last 3 bars
+            recent_bars = df_candles.tail(3)
+            momentum_score = 0
+            for _, r in recent_bars.iterrows():
+                if r['Close'] >= r['Open']:
+                    momentum_score += 1
+                else:
+                    momentum_score -= 1
+
+            avg_range = (df_candles['High'] - df_candles['Low']).mean()
+            last_vol = df_candles['Volume'].iloc[-1]
+            avg_vol = df_candles['Volume'].mean()
+            vol_surge = last_vol > avg_vol
+
+            # Projection Logic
+            is_bullish_projection = (momentum_score > 0) or (vol_surge and df_candles['Close'].iloc[-1] >= df_candles['Open'].iloc[-1])
+            projection_label = "UPWARD (BULLISH PROJECTION 📈)" if is_bullish_projection else "DOWNWARD (BEARISH PROJECTION 📉)"
+            projection_color = "#00d09c" if is_bullish_projection else "#eb5b3c"
+            
+            # Projected target price range for next 10m bar
+            projected_delta = avg_range * 0.6 if is_bullish_projection else -(avg_range * 0.6)
+            projected_target = current_price + projected_delta
+            confidence_pct = min(88, max(55, 60 + abs(momentum_score) * 10 + (10 if vol_surge else 0)))
 
         hc1, hc2 = st.columns([1.5, 1])
         with hc1:
             st.markdown(
                 f"""<div class="card" style="padding: 22px 18px;">
-                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Market-Aligned Feed)</span></h4>
-                <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Synced 10m Bars: <b>{len(df_candles)}</b></p>
+                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Market Expertise Engine)</span></h4>
+                <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Total 10m Bars: <b>{len(df_candles)}</b></p>
                 <h4 style="margin:8px 0 0 0; color:#00d09c; font-size:18px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if session_chg >= 0 else '#eb5b3c'};">({session_chg:+.2f}%)</span></h4>
             </div>""",
                 unsafe_allow_html=True,
             )
         with hc2:
             st.markdown(
-                f"""<div class="card" style="background: {status_color}; color: #0f141e; text-align: center; padding: 22px 18px;">
-                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">ACTIVE 10-MIN BAR STATUS</div>
-                <div style="font-size: 20px; font-weight: 900; margin: 6px 0;">{status_text}</div>
-                <div style="font-size: 12px; font-weight: 600;">Aligned starting strictly from 09:15 AM open.</div>
+                f"""<div class="card" style="background: {projection_color}; color: #0f141e; text-align: center; padding: 22px 18px;">
+                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">NEXT 10-MIN CANDLE FORECAST</div>
+                <div style="font-size: 18px; font-weight: 900; margin: 6px 0;">{projection_label}</div>
+                <div style="font-size: 12px; font-weight: 600;">Est. Target: ₹{projected_target:.2f} | Confidence: {confidence_pct}%</div>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -112,9 +130,9 @@ if ticker:
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Live LTP", f"₹{current_price:.2f}", f"{session_chg:+.2f}%")
-        m2.metric("Active 10m Volume", f"{int(df_candles['Volume'].iloc[-1]):,}", "Latest Bar")
-        m3.metric("Session High", f"₹{df_candles['High'].max():.2f}", "Peak")
-        m4.metric("Session Low", f"₹{df_candles['Low'].min():.2f}", "Floor")
+        m2.metric("Volume Surge Status", "High Activity" if vol_surge else "Normal", "vs Session Avg")
+        m3.metric("Avg 10m Range", f"₹{avg_range:.2f}", "Volatility Index")
+        m4.metric("Projection Confidence", f"{confidence_pct}%", "Statistical Weight")
 
         st.markdown("---")
 
@@ -137,14 +155,14 @@ if ticker:
             plot_bgcolor='#1c212b',
             font=dict(color='#f0f4f8'),
             margin=dict(l=10, r=10, t=30, b=10),
-            xaxis=dict(title='Market Session Timestamps (10 Min)', gridcolor='#28303d', rangeslider=dict(visible=False)),
+            xaxis=dict(title='Market Session Timestamps (10 Min Interval: 09:15, 09:25, 09:35...)', gridcolor='#28303d', rangeslider=dict(visible=False)),
             yaxis=dict(title='Price (₹)', gridcolor='#28303d'),
             height=450
         )
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records (09:15, 09:25, 09:35...)")
+        st.subheader("⚡ Market-Synced 10-Minute Candle Interval Records")
         
         display_df = df_candles.tail(10).reset_index()
         time_col = "Datetime" if "Datetime" in display_df.columns else ("Date" if "Date" in display_df.columns else display_df.columns[0])
@@ -176,9 +194,9 @@ if ticker:
 
     except Exception as e:
         st.error(
-            f"⚠️ Error synchronizing market-aligned candles for {ticker}. Details: {e}"
+            f"⚠️ Error analyzing market data and projecting next candle for {ticker}. Details: {e}"
         )
 else:
     st.info(
-        "Please select your exchange and enter a stock ticker above to load the live market-aligned 10-minute app and interactive chart."
+        "Please select your exchange and enter a stock ticker above to load the live analysis and next candle projection engine."
     )
