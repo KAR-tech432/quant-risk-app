@@ -30,12 +30,10 @@ if ticker:
     @st.cache_data(ttl=5)
     def pull_data(t):
         stock = yf.Ticker(t)
-        # Daily history for metrics and formulas
         df = stock.history(period="3mo", interval="1d")
         if not df.empty and df.index.tz is not None:
             df.index = df.index.tz_localize(None)
         
-        # Intraday history for today's live chart (5m intervals)
         idf = stock.history(period="1d", interval="5m")
         if not idf.empty and idf.index.tz is not None:
             idf.index = idf.index.tz_localize(None)
@@ -82,7 +80,6 @@ if ticker:
         ])
         bull = bull_score >= 2
 
-        # Plain English Decision & Advice
         if bull:
             action_advice = "ACCUMULATE / BUY"
             story = f"Buyers are active and stepping in to push the price up. The stock is trading safely above the fair average price (₹{vwap:.2f}), showing strong buyer support. <b>Decision:</b> Good time to consider buying or building a position."
@@ -104,6 +101,11 @@ if ticker:
         nw_h2 = p + swing_range + (atr * 2.0)
         nw_l1 = p - (swing_range * 0.5) - (atr * 1.2)
         nw_l2 = p - swing_range - (atr * 2.0)
+
+        # --- CODED BRICK WALL (HARD RISK FLOOR) ---
+        # Enforces a strict coded safety limit matching Low 2 weekly extreme threshold
+        hard_brick_wall = nw_l2
+        is_wall_breached = p < hard_brick_wall
 
         ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
         current_time = ist_now.time()
@@ -150,13 +152,29 @@ if ticker:
         with top_c3:
             st.markdown(f"""
                 <div class="card">
-                    <div class="title">Next Candle</div>
+                    <div class="title">Next Candle (Forecast)</div>
                     <div style="font-size: 11px; margin-top: 6px; color: #0f172a; line-height: 1.5;">
                         ▲ <b>High:</b> ₹{nc_h:.2f}<br>
-                        ▼ <b>Low:</b> ₹{nc_l:.2f}
+                        ▼ <b>Low (Floor):</b> ₹{nc_l:.2f}
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+
+        # MIDDLE ROW: Hard Brick Wall Safety Monitor
+        wall_bg = "#fee2e2" if is_wall_breached else "#f0fdf4"
+        wall_border = "#dc2626" if is_wall_breached else "#16a34a"
+        wall_text_color = "#991b1b" if is_wall_breached else "#166534"
+        wall_status_msg = "⚠️ WARNING: ABSOLUTE BRICK WALL BREACHED! Capital protection triggered." if is_wall_breached else "🛡️ SAFE: Price is operating above the hard structural safety floor."
+
+        st.markdown(f"""
+            <div class="card" style="background: {wall_bg}; border: 2px solid {wall_border};">
+                <div class="title" style="color: {wall_text_color};">Coded Absolute Brick Wall (Stop-Loss Floor)</div>
+                <div style="font-size: 20px; font-weight: 900; color: {wall_text_color}; margin-top: 6px;">₹{hard_brick_wall:.2f}</div>
+                <div style="font-size: 12px; font-weight: 700; color: {wall_text_color}; margin-top: 6px;">
+                    {wall_status_msg}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
         # BOTTOM ROW: Next Day Targets & Next Week Targets Side-by-Side
         bot_c1, bot_c2 = st.columns(2, gap="medium")
@@ -172,7 +190,7 @@ if ticker:
                             <span style="font-size: 11px; color: #0f172a;">🟢 H2: ₹{nd_h2:.2f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS (SUPPORT)</div>
                             <span style="font-size: 11px; color: #0f172a;">🔴 L1: ₹{nd_l1:.2f}</span><br>
                             <span style="font-size: 11px; color: #0f172a;">🔴 L2: ₹{nd_l2:.2f}</span>
                         </div>
@@ -191,7 +209,7 @@ if ticker:
                             <span style="font-size: 11px; color: #0f172a;">🟢 H2: ₹{nw_h2:.2f}</span>
                         </div>
                         <div style="flex: 1;">
-                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS</div>
+                            <div style="font-size: 9px; font-weight: 800; color: #b91c1c; margin-bottom: 2px;">LOWS (SUPPORT)</div>
                             <span style="font-size: 11px; color: #0f172a;">🔴 L1: ₹{nw_l1:.2f}</span><br>
                             <span style="font-size: 11px; color: #0f172a;">🔴 L2: ₹{nw_l2:.2f}</span>
                         </div>
