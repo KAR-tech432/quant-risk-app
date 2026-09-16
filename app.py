@@ -27,11 +27,10 @@ st.markdown("---")
 c1, c2 = st.columns([1, 2])
 with c1:
     ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
-    # Map friendly labels to yfinance suffixes
     ex = ".NS" if ex_label == "NSE" else ".BO"
 with c2:
     inp = st.text_input(
-        "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY):",
+        "Enter Stock Ticker (e.g., TEJASNET, RELIANCE, TCS):",
         value="",
         placeholder="Type symbol...",
     ).upper()
@@ -48,9 +47,9 @@ if inp:
 
 if ticker:
     try:
-        with st.spinner(f"Fetching real market data for {ticker}..."):
+        with st.spinner(f"Fetching real market data & computing pivot levels for {ticker}..."):
             stock = yf.Ticker(ticker)
-            df_hist = stock.history(period="10d")
+            df_hist = stock.history(period="15d")
 
             if df_hist.empty:
                 st.error(
@@ -66,6 +65,7 @@ if ticker:
             )
             chg = ((current_price - prev_close) / prev_close) * 100
 
+            # Calculate RSI (14)
             delta = df_hist["Close"].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -75,6 +75,16 @@ if ticker:
                 if not rs.empty and not pd.isna(rs.iloc[-1])
                 else 50.0
             )
+
+            # Calculate Classic Pivot Points & Support Levels from previous day's data
+            high_p = float(df_hist["High"].iloc[-2])
+            low_p = float(df_hist["Low"].iloc[-2])
+            close_p = float(df_hist["Close"].iloc[-2])
+            
+            pivot = (high_p + low_p + close_p) / 3
+            s1 = (2 * pivot) - high_p
+            s2 = pivot - (high_p - low_p)
+            s3 = low_p - 2 * (high_p - pivot)
 
         hc1, hc2 = st.columns([1.5, 1])
         with hc1:
@@ -87,22 +97,16 @@ if ticker:
                 unsafe_allow_html=True,
             )
         with hc2:
-            action = (
-                "BUY"
-                if rsi < 40
-                else ("ACCUMULATE" if 40 <= rsi <= 60 else "SELL")
-            )
-            color = (
-                "#00d09c"
-                if action == "BUY"
-                else ("#ffa726" if action == "ACCUMULATE" else "#eb5b3c")
-            )
-            # Increased size, padding, and font dimensions for the action box
+            # Custom signal logic checking support boundary breaches
+            is_breakdown = current_price <= s1
+            action = "BEARISH / DOWN-TEST" if is_breakdown else ("BUY" if rsi < 40 else ("ACCUMULATE" if 40 <= rsi <= 60 else "SELL"))
+            color = "#eb5b3c" if is_breakdown else ("#00d09c" if action == "BUY" else ("#ffa726" if action == "ACCUMULATE" else "#eb5b3c"))
+            
             st.markdown(
                 f"""<div class="card" style="background: {color}; color: #0f141e; text-align: center; padding: 22px 18px;">
-                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">REAL-TIME SIGNAL</div>
-                <div style="font-size: 24px; font-weight: 900; margin: 6px 0;">{action}</div>
-                <div style="font-size: 12px; font-weight: 600;">Based on live price action & RSI metrics.</div>
+                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">RISK & SIGNAL ALERT</div>
+                <div style="font-size: 22px; font-weight: 900; margin: 6px 0;">{action}</div>
+                <div style="font-size: 12px; font-weight: 600;">{'Price breaching critical support floors.' if is_breakdown else 'Standard technical momentum tracking.'}</div>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -111,39 +115,30 @@ if ticker:
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Last Traded Price", f"₹{current_price:.2f}", f"{chg:+.2f}%")
-        m2.metric(
-            "10-Day Low", f"₹{df_hist['Low'].min():.2f}", "Support Level"
-        )
-        m3.metric("RSI (14)", f"{rsi:.1f}", "Momentum")
-        m4.metric(
-            "Volume (Latest)",
-            f"{int(df_hist['Volume'].iloc[-1]):,}",
-            "Traded Vol",
-        )
+        m2.metric("Support 1 (S1)", f"₹{s1:.2f}", "Immediate Floor")
+        m3.metric("Support 2 (S2)", f"₹{s2:.2f}", "Deep Drop Target")
+        m4.metric("RSI (14)", f"{rsi:.1f}", "Momentum")
 
         st.markdown("---")
 
-        st.subheader("Projected Hourly Targets Matrix")
-        volatility_factor = current_price * 0.0025
-        hourly_data = [
-            {
-                "Hour Block": f"Hour {i}",
-                "Target Range": f"₹{current_price + (i*volatility_factor*0.5):.2f} - ₹{current_price + (i*volatility_factor*1.5):.2f}",
-                "Expected Return": f"+{i*0.18:.2f}%",
-            }
-            for i in range(1, 7)
+        st.subheader("⚠️ Technical Support & Breakdown Target Matrix")
+        support_data = [
+            {"Level Type": "Pivot Point (PP)", "Price Boundary": f"₹{pivot:.2f}", "Status": "Neutral Centerline"},
+            {"Level Type": "Support 1 (S1)", "Price Boundary": f"₹{s1:.2f}", "Status": "Critical Test Zone / Minor Breakdown"},
+            {"Level Type": "Support 2 (S2)", "Price Boundary": f"₹{s2:.2f}", "Status": "Major Correction / Target Floor Zone"},
+            {"Level Type": "Support 3 (S3)", "Price Boundary": f"₹{s3:.2f}", "Status": "Extreme Crash Lower Band"}
         ]
-        st.dataframe(pd.DataFrame(hourly_data), use_container_width=True)
+        st.dataframe(pd.DataFrame(support_data), use_container_width=True)
 
         st.markdown("---")
-        st.subheader("Recent Historical Data (10 Days)")
+        st.subheader("📊 Recent Historical Data (15 Days)")
         st.dataframe(df_hist.sort_index(ascending=False), use_container_width=True)
 
     except Exception as e:
         st.error(
-            f"⚠️ Error fetching data for {ticker}. Please ensure it is a valid active ticker symbol. Details: {e}"
+            f"⚠️ Error processing pivot calculations for {ticker}. Details: {e}"
         )
 else:
     st.info(
-        "Please select your exchange and enter a stock ticker above to fetch accurate live market data and predictions."
+        "Please select your exchange and enter a stock ticker above to view deep support floors and breakdown matrices."
     )
