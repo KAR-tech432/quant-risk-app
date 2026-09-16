@@ -97,7 +97,6 @@ if ticker:
                 unsafe_allow_html=True,
             )
         with hc2:
-            # Custom signal logic checking support boundary breaches
             is_breakdown = current_price <= s1
             action = "BEARISH / DOWN-TEST" if is_breakdown else ("BUY" if rsi < 40 else ("ACCUMULATE" if 40 <= rsi <= 60 else "SELL"))
             color = "#eb5b3c" if is_breakdown else ("#00d09c" if action == "BUY" else ("#ffa726" if action == "ACCUMULATE" else "#eb5b3c"))
@@ -129,10 +128,6 @@ if ticker:
             {"Level Type": "Support 3 (S3)", "Price Boundary": f"₹{s3:.2f}", "Status": "Extreme Crash Lower Band"}
         ]
         st.dataframe(pd.DataFrame(support_data), use_container_width=True)
-
-        st.markdown("---")
-        st.subheader("📊 Recent Historical Data (15 Days)")
-        st.dataframe(df_hist.sort_index(ascending=False), use_container_width=True)
 
     except Exception as e:
         st.error(
