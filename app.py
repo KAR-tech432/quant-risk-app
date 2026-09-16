@@ -18,9 +18,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Placeholder container for top-right stock name header
-header_container = st.empty()
-
+# Determine Ticker early to display in the header
 c1, c2, c3 = st.columns([1, 2, 1])
 with c1:
     ex_label = st.selectbox("Market Exchange:", ["NSE", "BSE"])
@@ -41,16 +39,20 @@ if inp:
     clean_inp = inp.replace(".NS", "").replace(".BO", "").replace(".BS", "").strip()
     ticker = f"{clean_inp}{ex}"
 
-# Render top header with stock name at the right top corner
-with header_container.container():
-    h_c1, h_c2 = st.columns([2, 1])
-    with h_c1:
-        st.markdown("<h2 style='color: white; margin-bottom: 0;'>Live Market Forecast</h2>", unsafe_allow_html=True)
-    with h_c2:
-        if ticker:
-            st.markdown(f"<div style='text-align: right; color: #00d09c; font-size: 20px; font-weight: 800; padding-top: 6px;'>📍 {ticker}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 12px;'>No Stock Selected</div>", unsafe_allow_html=True)
+# Top-Right Stock Name Header Row
+hc_title, hc_stock = st.columns([2, 2])
+with hc_title:
+    st.markdown("<h2 style='color: white; margin: 0;'>Live Market Forecast</h2>", unsafe_allow_html=True)
+with hc_stock:
+    if ticker:
+        try:
+            temp_stock = yf.Ticker(ticker)
+            co_name = temp_stock.info.get('longName', ticker)
+        except:
+            co_name = ticker
+        st.markdown(f"<div style='text-align: right; color: #00d09c; font-size: 18px; font-weight: 800; padding-top: 6px;'>📍 {co_name} ({ticker})</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f"<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 10px;'>📍 No Stock Selected</div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -161,8 +163,8 @@ if ticker:
                 next_week_conf = round(min(max(next_day_conf * 0.95, 65.0), 95.0), 1)
 
             # Display 3 Forecast Cards Side-by-Side
-            hc1, hc2, hc3 = st.columns([1.2, 1.4, 1.4])
-            with hc1:
+            fc1, fc2, fc3 = st.columns([1.2, 1.4, 1.4])
+            with fc1:
                 st.markdown(
                     f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 14px 10px; border-radius: 8px;">
                     <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT CANDLE FORECAST</div>
@@ -176,7 +178,7 @@ if ticker:
                 </div>""",
                     unsafe_allow_html=True,
                 )
-            with hc2:
+            with fc2:
                 st.markdown(
                     f"""<div class="card" style="background: #1c212b; border: 1px solid #28303d; color: #f0f4f8; text-align: center; padding: 14px 10px; border-radius: 8px;">
                     <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #8c96a5;">NEXT DAY PROJECTIONS</div>
@@ -192,7 +194,7 @@ if ticker:
                 </div>""",
                     unsafe_allow_html=True,
                 )
-            with hc3:
+            with fc3:
                 st.markdown(
                     f"""<div class="card" style="background: #1c212b; border: 1px solid #28303d; color: #f0f4f8; text-align: center; padding: 14px 10px; border-radius: 8px;">
                     <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #8c96a5;">NEXT 1 WEEK PROJECTIONS</div>
