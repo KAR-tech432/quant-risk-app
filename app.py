@@ -3,7 +3,7 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Live 10-Min Graph & Sync Engine", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Live 10-Min Market Candle Sync", page_icon="📈", layout="wide")
 
 st.markdown(
     """
@@ -20,7 +20,7 @@ st.markdown(
 )
 
 st.markdown(
-    "<h2 style='color: white; margin-bottom: 0;'>Live 10-Minute Interval Graph & Order Flow Monitor</h2>",
+    "<h2 style='color: white; margin-bottom: 0;'>Live 10-Minute Market Candle Synchronization & Interactive Graph</h2>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
@@ -31,7 +31,7 @@ with c1:
     ex = ".NS" if ex_label == "NSE" else ".BO"
 with c2:
     inp = st.text_input(
-        "Enter Stock Ticker (e.g., TEJASNET, RELIANCE, TCS):",
+        "Enter Stock Ticker (e.g., RELIANCE, TCS, INFY):",
         value="",
         placeholder="Type symbol...",
     ).upper()
@@ -43,19 +43,19 @@ if inp:
 
 if ticker:
     try:
-        with st.spinner(f"Fetching live feed and building 10-minute live graph for {ticker}..."):
+        with st.spinner(f"Synchronizing live exchange ticks into exact 10-minute candles for {ticker}..."):
             stock = yf.Ticker(ticker)
-            # Fetch base intraday ticks and resample into strict 10-minute candles
-            df_raw = stock.history(period="2d", interval="5m")
+            # Fetch intraday ticks (5m interval feed to aggregate cleanly into 10m exchange blocks)
+            df_raw = stock.history(period="1d", interval="5m")
 
             if df_raw.empty or len(df_raw) < 2:
                 st.error(
-                    f"❌ Live session data is currently unavailable for '{ticker}'. Please ensure the market session is active."
+                    f"❌ Live session data is currently unavailable for '{ticker}'. Ensure the market session is active."
                 )
                 st.stop()
 
-            # Resample raw feed into strict 10-minute candles
-            df_candles = df_raw.resample('10min').agg({
+            # Resample strictly into 10-minute market candle intervals matching exchange start timings
+            df_candles = df_raw.resample('10min', closed='left', label='left').agg({
                 'Open': 'first',
                 'High': 'max',
                 'Low': 'min',
@@ -64,7 +64,7 @@ if ticker:
             }).dropna()
 
             if df_candles.empty:
-                st.error("❌ Not enough data points to form 10-minute candles for the current session.")
+                st.error("❌ Not enough data points to form 10-minute candles for the active session.")
                 st.stop()
 
             current_price = float(df_candles["Close"].iloc[-1])
@@ -82,8 +82,8 @@ if ticker:
         with hc1:
             st.markdown(
                 f"""<div class="card" style="padding: 22px 18px;">
-                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(10-Min Live Feed)</span></h4>
-                <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Total 10m Bars: <b>{len(df_candles)}</b></p>
+                <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Live Exchange Feed)</span></h4>
+                <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Synced 10m Candles: <b>{len(df_candles)}</b></p>
                 <h4 style="margin:8px 0 0 0; color:#00d09c; font-size:18px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if session_chg >= 0 else '#eb5b3c'};">({session_chg:+.2f}%)</span></h4>
             </div>""",
                 unsafe_allow_html=True,
@@ -91,9 +91,9 @@ if ticker:
         with hc2:
             st.markdown(
                 f"""<div class="card" style="background: {status_color}; color: #0f141e; text-align: center; padding: 22px 18px;">
-                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">LIVE 10-MIN BAR STATUS</div>
+                <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px;">ACTIVE 10-MIN BAR STATUS</div>
                 <div style="font-size: 20px; font-weight: 900; margin: 6px 0;">{status_text}</div>
-                <div style="font-size: 12px; font-weight: 600;">Synchronized to strict 10-minute intervals.</div>
+                <div style="font-size: 12px; font-weight: 600;">Matched to live exchange candle boundaries.</div>
             </div>""",
                 unsafe_allow_html=True,
             )
@@ -102,38 +102,39 @@ if ticker:
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Live LTP", f"₹{current_price:.2f}", f"{session_chg:+.2f}%")
-        m2.metric("Active 10m Volume", f"{int(df_candles['Volume'].iloc[-1]):,}", "Latest 10m Block")
+        m2.metric("Active 10m Volume", f"{int(df_candles['Volume'].iloc[-1]):,}", "Latest Bar")
         m3.metric("Session High", f"₹{df_candles['High'].max():.2f}", "Peak")
         m4.metric("Session Low", f"₹{df_candles['Low'].min():.2f}", "Floor")
 
         st.markdown("---")
 
-        # --- LIVE 10-MINUTE INTERACTIVE GRAPH ---
-        st.subheader("📊 Live 10-Minute Price Action Graph")
+        # --- INTERACTIVE LIVE 10-MINUTE CANDLESTICK CHART ---
+        st.subheader("📊 Interactive Live 10-Minute Candlestick Graph")
         
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
+        fig = go.Figure(data=[go.Candlestick(
             x=df_candles.index,
-            y=df_candles['Close'],
-            mode='lines+markers',
-            name='10-Min Close',
-            line=dict(color='#00d09c' if session_chg >= 0 else '#eb5b3c', width=2),
-            marker=dict(size=6)
-        ))
+            open=df_candles['Open'],
+            high=df_candles['High'],
+            low=df_candles['Low'],
+            close=df_candles['Close'],
+            increasing_line_color='#00d09c',
+            decreasing_line_color='#eb5b3c',
+            name='10-Min Candles'
+        )])
         
         fig.update_layout(
             paper_bgcolor='#0f141e',
             plot_bgcolor='#1c212b',
             font=dict(color='#f0f4f8'),
             margin=dict(l=10, r=10, t=30, b=10),
-            xaxis=dict(title='Time (10-Min Intervals)', gridcolor='#28303d'),
+            xaxis=dict(title='Live Candle Timestamps (10 Min)', gridcolor='#28303d', rangeslider=dict(visible=False)),
             yaxis=dict(title='Price (₹)', gridcolor='#28303d'),
-            height=400
+            height=450
         )
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-        st.subheader("⚡ Live-Synced 10-Minute Candle Intervals Table")
+        st.subheader("⚡ Live-Synced 10-Minute Candle Interval Records")
         
         display_df = df_candles.tail(10).reset_index()
         time_col = "Datetime" if "Datetime" in display_df.columns else ("Date" if "Date" in display_df.columns else display_df.columns[0])
@@ -150,22 +151,22 @@ if ticker:
             bar_dir = "UPWARD 📈" if c_close >= c_open else "DOWNWARD 📉"
             
             formatted_rows.append({
-                "10-Min Candle Timestamp": t_stamp,
+                "10-Min Candle Interval": t_stamp,
                 "Open": f"₹{c_open:.2f}",
                 "High": f"₹{c_high:.2f}",
                 "Low": f"₹{c_low:.2f}",
                 "Close": f"₹{c_close:.2f}",
                 "Volume": f"{c_vol:,}",
-                "Actual Direction": bar_dir
+                "Market Direction": bar_dir
             })
 
         st.dataframe(pd.DataFrame(formatted_rows).iloc[::-1], use_container_width=True)
 
     except Exception as e:
         st.error(
-            f"⚠️ Error generating live graph and candles for {ticker}. Details: {e}"
+            f"⚠️ Error rendering live interactive graph for {ticker}. Details: {e}"
         )
 else:
     st.info(
-        "Please select your exchange and enter a stock ticker above to view the live 10-minute graph and intervals."
+        "Please select your exchange and enter a stock ticker above to launch the live interactive 10-minute candlestick graph."
     )
