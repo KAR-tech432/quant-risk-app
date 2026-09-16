@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 
 st.set_page_config(page_title="Enterprise Quant Terminal", page_icon="🏛️", layout="wide", initial_sidebar_state="collapsed")
 
@@ -42,17 +43,24 @@ if ticker:
 
     @st.fragment(run_every=1)
     def live_engine():
-        df = fetch_data(ticker)
-        if df.empty:
+        df_raw = fetch_data(ticker)
+        if df_raw.empty:
             header_box.markdown("<div style='text-align: right; color: #f87171; font-size: 15px; font-weight: 700;'>📍 Invalid Ticker or Data Offline</div>", unsafe_allow_html=True)
             return
         
-        c_price = float(df['Close'].iloc[-1])
-        op_price = float(df['Open'].iloc[0])
+        # Resample to 10-Minute Candles for Advanced R:R & Volatility Calculations
+        df_10m = df_raw.resample('10min', closed='left', label='left').agg({
+            'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
+        }).dropna()
+
+        if df_10m.empty:
+            df_10m = df_raw.tail(10) # Fallback
+
+        c_price = float(df_raw['Close'].iloc[-1])
+        op_price = float(df_raw['Open'].iloc[0])
         chg = ((c_price - op_price) / op_price) * 100
         color = "#34d399" if chg >= 0 else "#f87171"
         
-        # Increased font size for stock name and live price as requested
         header_box.markdown(
             f"<div style='text-align: right; font-size: 20px; font-weight: 900; color: #f8fafc;'>"
             f"📍 {ticker.split('.')[0]} <span style='color: #34d399;'>₹{c_price:.2f}</span> "
@@ -60,20 +68,42 @@ if ticker:
             f"</div>", unsafe_allow_html=True
         )
 
-        H, L, C = float(df['High'].max()), float(df['Low'].min()), c_price
+        H, L, C = float(df_raw['High'].max()), float(df_raw['Low'].min()), c_price
         rng = H - L
         mid = (H + L) / 2
-        bull = df['Close'].iloc[-1] >= df['Open'].iloc[-1]
+        bull = df_raw['Close'].iloc[-1] >= df_raw['Open'].iloc[-1]
+
+        # Latest 10-Minute Candle Metrics for R:R
+        latest_10m_high = float(df_10m['High'].iloc[-1])
+        latest_10m_low = float(df_10m['Low'].iloc[-1])
+        ten_min_range = latest_10m_high - latest_10m_low
 
         if bull and C >= mid:
-            bias, dec, horizon, bg, border = "BULLISH ACCUMULATION 📈", "ACCUMULATE / BUY", "3 to 5 Trading Sessions", "linear-gradient(135deg, #064e3b 0%, #022c22 100%)", "#059669"
+            bias, dec, horizon, bg, border = "BULLISH ACCUMULATION 📈", "ACCUMULATE / BUY", "3 to 5 Trading Sessions", "linear-gradient(135deg, #064e3b 0%, #022c22 100%H)", "#059669"
             reason = "Institutional accumulation evident; buyers defending upper range boundaries."
+            # Dynamic 10-min R:R Setup for Buy
+            entry_price = C
+            stop_loss = latest_10m_low - (ten_min_range * 0.2)
+            risk = entry_price - stop_loss
+            reward = risk * 2.5 # Professional 1:2.5 R:R Ratio
+            target_price = entry_price + reward
+            rr_text = f"1 : 2.50"
         elif not bull and C < mid:
             bias, dec, horizon, bg, border = "BEARISH DISTRIBUTION 📉", "SELL / REDUCE", "2 to 3 Trading Sessions", "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)", "#dc2626"
             reason = "Distribution dominating order flow; sellers active near resistance."
+            entry_price = C
+            stop_loss = latest_10m_high + (ten_min_range * 0.2)
+            risk = stop_loss - entry_price
+            reward = risk * 2.5
+            target_price = entry_price - reward
+            rr_text = f"1 : 2.50"
         else:
             bias, dec, horizon, bg, border = "EQUILIBRIUM ⚖️", "HOLD / WAIT", "1 to 2 Trading Sessions", "linear-gradient(135deg, #78350f 100%, #451a03 100%)", "#d97706"
             reason = "Consolidation zone; awaiting directional breakout trigger."
+            entry_price = C
+            stop_loss = latest_10m_low
+            target_price = latest_10m_high
+            rr_text = f"1 : 1.00 (Neutral)"
 
         pp = (H + L + C) / 3
         nc_h, nc_l = C + (rng/20), C - (rng/20)
@@ -81,17 +111,27 @@ if ticker:
         nw_h1, nw_h2, nw_l1, nw_l2 = C+(rng*1.1), C+(rng*2.0), C-(rng*1.1), C-(rng*2.0)
         r1, r2, s1, s2 = (2*pp)-L, H+(pp-L), (2*pp)-H, L-(H-pp)
 
-        r1_c1, r1_c2 = st.columns(2, gap="medium")
+        r1_c1, r1_c2, r1_c3 = st.columns(3, gap="medium")
+        
         r1_c1.markdown(f"""<div class="card" style="background: {bg}; border: 1px solid {border};">
             <div class="title">Expert Market Bias & Decision</div>
-            <div style="font-size: 16px; font-weight: 900; color: #fff;">{bias}</div>
-            <div style="font-size: 12px; font-weight: 800; color: #38bdf8; margin-top: 4px;">Recommendation: {dec} &nbsp;|&nbsp; <span style="color: #fbbf24;">Valid for: {horizon}</span></div>
-            <div style="font-size: 11px; margin-top: 6px; padding: 6px; background: rgba(0,0,0,0.25); border-radius: 4px; color: #f1f5f9;">{reason}</div>
+            <div style="font-size: 15px; font-weight: 900; color: #fff;">{bias}</div>
+            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; margin-top: 4px;">Rec: {dec} | <span style="color: #fbbf24;">Valid: {horizon}</span></div>
+            <div style="font-size: 10px; margin-top: 4px; padding: 4px; background: rgba(0,0,0,0.25); border-radius: 4px; color: #f1f5f9;">{reason}</div>
         </div>""", unsafe_allow_html=True)
 
         r1_c2.markdown(f"""<div class="card">
+            <div class="title">10-Min Candle Risk : Reward Matrix</div>
+            <div style="font-size: 13px; font-weight: 900; color: #38bdf8; margin-top: 2px;">Ratio: {rr_text}</div>
+            <div style="font-size: 11px; margin-top: 4px; color: #f1f5f9;">
+                🛡️ <b>SL:</b> ₹{stop_loss:.2f}<br>
+                🎯 <b>Target:</b> ₹{target_price:.2f}
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+        r1_c3.markdown(f"""<div class="card">
             <div class="title">Next Candle Micro Targets</div>
-            <div style="font-size: 12px; margin-top: 8px;"><span style="color: #34d399;">▲ High: ₹{nc_h:.2f}</span><br><span style="color: #f87171;">▼ Low: ₹{nc_l:.2f}</span></div>
+            <div style="font-size: 11px; margin-top: 6px;"><span style="color: #34d399;">▲ High: ₹{nc_h:.2f}</span><br><span style="color: #f87171;">▼ Low: ₹{nc_l:.2f}</span></div>
         </div>""", unsafe_allow_html=True)
 
         r2_c1, r2_c2, r2_c3 = st.columns(3, gap="medium")
