@@ -16,7 +16,7 @@ st.markdown("""
 # Elite UI Control Bar
 c1, c2, c3 = st.columns([1, 2.5, 1.2])
 ex = ".NS" if c1.selectbox("Exchange", ["NSE", "BSE"]) == "NSE" else ".BO"
-sym = c2.text_input("Asset Ticker", placeholder="e.g. RELIANCE, TCS").upper()
+sym = c2.text_input("Asset Ticker", placeholder="e.g. RELIANCE, TCS, SBIN").upper()
 c3.markdown("<div style='height:27px;'></div>", unsafe_allow_html=True)
 run = c3.button("Execute Deep Analysis", use_container_width=True)
 
@@ -25,14 +25,21 @@ ticker = f"{sym.strip()}{ex}" if sym else None
 if ticker:
     @st.cache_data(ttl=5)
     def pull_data(t):
-        df = yf.Ticker(t).history(period="5d", interval="10m")
-        return df.tz_localize(None) if not df.empty and df.index.tz is not None else df
+        stock = yf.Ticker(t)
+        # Fallback period parameters to prevent empty data returns
+        df = stock.history(period="1mo", interval="1d")
+        if df.empty:
+            df = stock.history(period="5d", interval="1h")
+        if not df.empty and df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
+        return df
 
     df = pull_data(ticker)
     if df.empty:
-        st.error("Invalid ticker or telemetry link offline.")
+        st.error(f"❌ Telemetry link offline for '{ticker}'. Verify ticker spelling or exchange.")
     else:
-        p, op = float(df['Close'].iloc[-1]), float(df['Open'].iloc[0])
+        p = float(df['Close'].iloc[-1])
+        op = float(df['Open'].iloc[0])
         chg = ((p - op) / op) * 100
         H, L = float(df['High'].max()), float(df['Low'].min())
         
@@ -58,7 +65,7 @@ if ticker:
 
         col2.markdown(f"""
             <div class="card">
-                <div class="title">10-Min Candle R:R Matrix</div>
+                <div class="title">Volatility Risk : Reward Matrix</div>
                 <div style="font-size:13px; font-weight:900; color:#38bdf8; margin-top:4px;">Optimal Ratio: 1 : 2.50</div>
                 <div style="font-size:11px; color:#f1f5f9; margin-top:4px;">🛡️ <b>SL:</b> ₹{L:.2f} | 🎯 <b>Target:</b> ₹{p + (atr * 0.4):.2f}</div>
             </div>
