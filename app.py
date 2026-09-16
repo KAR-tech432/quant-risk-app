@@ -43,7 +43,6 @@ hc_title, hc_stock = st.columns([2, 2])
 with hc_title:
     st.markdown("<h2 style='color: white; margin: 0;'>Live Market Forecast</h2>", unsafe_allow_html=True)
 
-# Dynamic Placeholder for Stock Name with CMP at Top Right
 header_stock_placeholder = hc_stock.empty()
 if not ticker:
     header_stock_placeholder.markdown("<div style='text-align: right; color: #8c96a5; font-size: 13px; padding-top: 10px;'>📍 No Stock Selected</div>", unsafe_allow_html=True)
@@ -57,7 +56,6 @@ if ticker:
             with st.spinner(f"Running quantitative calculation & live telemetry for {ticker}..."):
                 stock = yf.Ticker(ticker)
                 
-                # Fetch company name safely
                 try:
                     co_name = stock.info.get('longName', ticker)
                 except:
@@ -96,7 +94,6 @@ if ticker:
                 session_chg = ((current_price - session_open) / session_open) * 100
                 chg_color = "#00d09c" if session_chg >= 0 else "#eb5b3c"
 
-                # Update Top Right Header with Stock Name + CMP + Change
                 header_stock_placeholder.markdown(
                     f"<div style='text-align: right; color: #f0f4f8; font-size: 14px; font-weight: 700; padding-top: 4px;'>"
                     f"📍 {co_name} <span style='color: #00d09c;'>| CMP: ₹{current_price:.2f}</span> "
@@ -105,7 +102,7 @@ if ticker:
                     unsafe_allow_html=True
                 )
 
-                # --- RIGOROUS QUANTITATIVE PREDICTION ENGINE ---
+                # --- QUANTITATIVE PREDICTION ENGINE ---
                 df_candles['Returns'] = df_candles['Close'].pct_change()
                 volatility_std = df_candles['Returns'].std()
                 if pd.isna(volatility_std) or volatility_std == 0:
@@ -124,6 +121,12 @@ if ticker:
                 is_bullish = ema_fast >= ema_slow
                 projection_label = "BULLISH 📈" if is_bullish else "BEARISH 📉"
                 card_bg = "#00d09c" if is_bullish else "#eb5b3c"
+
+                # Dynamic Reason generation
+                if is_bullish:
+                    reason_text = "Reason: Fast EMA > Slow EMA with supportive buying momentum."
+                else:
+                    reason_text = "Reason: Fast EMA < Slow EMA with selling pressure & downward momentum."
 
                 multiplier = atr * 0.5 * vol_weight
                 if is_bullish:
@@ -172,13 +175,14 @@ if ticker:
                 
                 next_week_conf = round(min(max(next_day_conf * 0.95, 65.0), 95.0), 1)
 
-            # Display 3 Forecast Cards Side-by-Side
+            # Display 3 Forecast Cards Side-by-Side with Reason included
             fc1, fc2, fc3 = st.columns([1.2, 1.4, 1.4])
             with fc1:
                 st.markdown(
                     f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 14px 10px; border-radius: 8px;">
                     <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT CANDLE FORECAST</div>
-                    <div style="font-size: 15px; font-weight: 900; margin: 4px 0;">{projection_label}</div>
+                    <div style="font-size: 15px; font-weight: 900; margin: 3px 0;">{projection_label}</div>
+                    <div style="font-size: 10px; font-weight: 700; margin-bottom: 3px; opacity: 0.9;">{reason_text}</div>
                     <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
                         High: ₹{target_high:.2f} | Low: ₹{target_low:.2f}
                     </div>
