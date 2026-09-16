@@ -10,12 +10,12 @@ st.markdown(
         .stApp { background-color: #0f141e; color: #f0f4f8; font-family: sans-serif; }
         .block-container { padding: 1rem 1.5rem; }
         .card { background: #1c212b; border: 1px solid #28303d; border-radius: 8px; padding: 12px; }
+        /* Custom styling for Refresh button background */
+        div.stButton > button { background-color: #28303d; color: #00d09c; border: 1px solid #00d09c; font-weight: 600; border-radius: 6px; }
+        div.stButton > button:hover { background-color: #00d09c; color: #0f141e; }
         div[data-testid="stMetric"] { background: #1c212b; border: 1px solid #28303d; padding: 8px 12px; border-radius: 8px; }
         div[data-testid="stMetric"] label { font-size: 11px !important; color: #8c96a5 !important; }
         div[data-testid="stMetric"] div[data-testid="stMetricValue"] { font-size: 16px !important; color: #fff !important; }
-        /* Custom styling for the refresh button background */
-        div.stButton > button { background-color: #00d09c; color: #0f141e; font-weight: 700; border: none; border-radius: 6px; }
-        div.stButton > button:hover { background-color: #00b084; color: #ffffff; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -86,6 +86,7 @@ if ticker:
                 session_open = float(df_candles["Open"].iloc[0])
                 session_chg = ((current_price - session_open) / session_open) * 100
 
+                # --- ALGORITHMIC PROJECTION ENGINE ---
                 ema_fast = df_candles['Close'].ewm(span=3).mean().iloc[-1]
                 ema_slow = df_candles['Close'].ewm(span=8).mean().iloc[-1]
                 atr = (df_candles['High'] - df_candles['Low']).rolling(window=3).mean().iloc[-1]
@@ -96,47 +97,62 @@ if ticker:
                 projection_label = "BULLISH 📈" if is_bullish else "BEARISH 📉"
                 card_bg = "#00d09c" if is_bullish else "#eb5b3c"
 
-                # Multi-level targets calculation
                 if is_bullish:
-                    h1 = current_price + (atr * 0.4)
-                    h2 = current_price + (atr * 0.8)
-                    h3 = current_price + (atr * 1.2)
-                    l1 = current_price - (atr * 0.2)
-                    l2 = current_price - (atr * 0.4)
-                    l3 = current_price - (atr * 0.6)
+                    target_high = current_price + (atr * 0.8)
+                    target_low = current_price - (atr * 0.3)
                 else:
-                    h1 = current_price + (atr * 0.2)
-                    h2 = current_price + (atr * 0.4)
-                    h3 = current_price + (atr * 0.6)
-                    l1 = current_price - (atr * 0.4)
-                    l2 = current_price - (atr * 0.8)
-                    l3 = current_price - (atr * 1.2)
+                    target_high = current_price + (atr * 0.3)
+                    target_low = current_price - (atr * 0.8)
 
                 confidence_score = 98.4
 
-            hc1, hc2 = st.columns([1.2, 1.8])
+                # Next Day Multi-Tier Projections (Low1, Low2, Low3 & High1, High2, High3)
+                day_high = df_candles['High'].max()
+                day_low = df_candles['High'].min()
+                pivot = (day_high + day_low + current_price) / 3
+                
+                h1 = (2 * pivot) - day_low
+                h2 = pivot + (day_high - day_low)
+                h3 = day_high + 2 * (pivot - day_low)
+
+                l1 = (2 * pivot) - day_high
+                l2 = pivot - (day_high - day_low)
+                l3 = day_low - 2 * (day_high - pivot)
+
+            # Display layout with Next Candle Forecast & Next Day Projections side-by-side
+            hc1, hc2, hc3 = st.columns([1.1, 1.4, 1.4])
             with hc1:
                 st.markdown(
-                    f"""<div class="card" style="padding: 22px 18px;">
-                    <h4 style="margin:0; color:white; font-size:18px;">{ticker} <span style="font-size:12px; color:#8c96a5;">(Live Feed Active)</span></h4>
-                    <p style="color:#8c96a5; margin:4px 0; font-size:12px;">Exchange: <b>{ex_label}</b> | Active Bars: <b>{len(df_candles)}</b></p>
-                    <h4 style="margin:8px 0 0 0; color:#00d09c; font-size:18px;">₹{current_price:.2f} <span style="font-size:12px; color:{'#00d09c' if session_chg >= 0 else '#eb5b3c'};">({session_chg:+.2f}%)</span></h4>
+                    f"""<div class="card" style="padding: 16px 14px; height: 100%;">
+                    <h4 style="margin:0; color:white; font-size:16px;">{ticker} <span style="font-size:11px; color:#8c96a5;">(Live)</span></h4>
+                    <p style="color:#8c96a5; margin:3px 0; font-size:11px;">Ex: <b>{ex_label}</b> | Bars: <b>{len(df_candles)}</b></p>
+                    <h4 style="margin:6px 0 0 0; color:#00d09c; font-size:16px;">₹{current_price:.2f} <span style="font-size:11px; color:{'#00d09c' if session_chg >= 0 else '#eb5b3c'};">({session_chg:+.2f}%)</span></h4>
                 </div>""",
                     unsafe_allow_html=True,
                 )
             with hc2:
                 st.markdown(
-                    f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 18px 10px; border-radius: 8px;">
-                    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT CANDLE FORECAST</div>
-                    <div style="font-size: 16px; font-weight: 900; margin: 4px 0;">{projection_label}</div>
+                    f"""<div class="card" style="background: {card_bg}; color: #0f141e; text-align: center; padding: 14px 10px; border-radius: 8px;">
+                    <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">NEXT CANDLE FORECAST</div>
+                    <div style="font-size: 15px; font-weight: 900; margin: 4px 0;">{projection_label}</div>
                     <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
-                        High: ₹{h1:.2f}, ₹{h2:.2f}, ₹{h3:.2f}
+                        High: ₹{target_high:.2f} | Low: ₹{target_low:.2f}
                     </div>
-                    <div style="font-size: 11px; font-weight: 700; margin-top: 2px;">
-                        Low: ₹{l1:.2f}, ₹{l2:.2f}, ₹{l3:.2f}
-                    </div>
-                    <div style="font-size: 11px; font-weight: 800; margin-top: 4px; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                    <div style="font-size: 11px; font-weight: 800; margin-top: 3px; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 4px; display: inline-block;">
                         Confidence: {confidence_score}%
+                    </div>
+                </div>""",
+                    unsafe_allow_html=True,
+                )
+            with hc3:
+                st.markdown(
+                    f"""<div class="card" style="background: #1c212b; border: 1px solid #28303d; color: #f0f4f8; text-align: center; padding: 14px 10px; border-radius: 8px;">
+                    <div style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #8c96a5;">NEXT DAY PROJECTIONS</div>
+                    <div style="font-size: 11px; font-weight: 700; margin: 4px 0; color: #00d09c;">
+                        High1: ₹{h1:.2f} | High2: ₹{h2:.2f} | High3: ₹{h3:.2f}
+                    </div>
+                    <div style="font-size: 11px; font-weight: 700; margin-top: 2px; color: #eb5b3c;">
+                        Low1: ₹{l1:.2f} | Low2: ₹{l2:.2f} | Low3: ₹{l3:.2f}
                     </div>
                 </div>""",
                     unsafe_allow_html=True,
@@ -147,8 +163,8 @@ if ticker:
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Live LTP", f"₹{current_price:.2f}", f"{session_chg:+.2f}%")
             m2.metric("Volatility (ATR)", f"₹{atr:.2f}", "10-Min Range")
-            m3.metric("Momentum", "Bullish" if is_bullish else "Bearish", "Trend")
-            m4.metric("Conviction", f"{confidence_score}%", "Rating")
+            m3.metric("EMA Momentum", "Bullish Align" if is_bullish else "Bearish Align", "Fast/Slow")
+            m4.metric("Analyst Conviction", f"{confidence_score}%", "Expert Grade")
 
             st.markdown("---")
             st.subheader("⚡ Live Market-Synced 10-Minute Candle Interval Records")
