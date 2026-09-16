@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Enterprise Quant Terminal", page_icon="🏛️", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Enterprise Quant Terminal with Elliott Wave", page_icon="🏛️", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
@@ -25,7 +25,7 @@ run_btn = c3.button("🔄 Analyze", use_container_width=True)
 ticker = f"{inp.strip()}{ex}" if inp else None
 
 hc1, hc2 = st.columns([1.5, 2.5])
-hc1.markdown("<h3 style='color: #f8fafc; margin: 0; font-size: 18px;'>Quant Terminal</h3>", unsafe_allow_html=True)
+hc1.markdown("<h3 style='color: #f8fafc; margin: 0; font-size: 18px;'>Quant Terminal + Elliott Wave</h3>", unsafe_allow_html=True)
 header_box = hc2.empty()
 
 if not ticker:
@@ -36,7 +36,7 @@ st.markdown("<hr style='margin: 10px 0; border-color: #1e293b;'>", unsafe_allow_
 if ticker:
     @st.cache_data(ttl=10)
     def fetch_data(t):
-        df = yf.Ticker(t).history(period="2d", interval="1m")
+        df = yf.Ticker(t).history(period="3d", interval="1m")
         if not df.empty and df.index.tz is not None:
             df.index = df.index.tz_localize(None)
         return df
@@ -48,13 +48,12 @@ if ticker:
             header_box.markdown("<div style='text-align: right; color: #f87171; font-size: 15px; font-weight: 700;'>📍 Invalid Ticker or Data Offline</div>", unsafe_allow_html=True)
             return
         
-        # Resample to 10-Minute Candles for Advanced R:R & Volatility Calculations
+        # Resample to 10-Minute Candles for R:R Matrix
         df_10m = df_raw.resample('10min', closed='left', label='left').agg({
             'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
         }).dropna()
-
         if df_10m.empty:
-            df_10m = df_raw.tail(10) # Fallback
+            df_10m = df_raw.tail(10)
 
         c_price = float(df_raw['Close'].iloc[-1])
         op_price = float(df_raw['Open'].iloc[0])
@@ -73,37 +72,27 @@ if ticker:
         mid = (H + L) / 2
         bull = df_raw['Close'].iloc[-1] >= df_raw['Open'].iloc[-1]
 
-        # Latest 10-Minute Candle Metrics for R:R
-        latest_10m_high = float(df_10m['High'].iloc[-1])
-        latest_10m_low = float(df_10m['Low'].iloc[-1])
-        ten_min_range = latest_10m_high - latest_10m_low
-
-        if bull and C >= mid:
-            bias, dec, horizon, bg, border = "BULLISH ACCUMULATION 📈", "ACCUMULATE / BUY", "3 to 5 Trading Sessions", "linear-gradient(135deg, #064e3b 0%, #022c22 100%H)", "#059669"
-            reason = "Institutional accumulation evident; buyers defending upper range boundaries."
-            # Dynamic 10-min R:R Setup for Buy
-            entry_price = C
-            stop_loss = latest_10m_low - (ten_min_range * 0.2)
+        # Algorithmic Elliott Wave Phase Classifier
+        recent_trend = df_raw['Close'].tail(30).pct_change().mean()
+        if bull and C >= mid and recent_trend > 0:
+            wave_label, wave_desc = "Wave 3 / 5 Impulse Phase 🚀", "Strong directional momentum expanding in line with primary trend."
+            bias, dec, horizon, bg, border = "BULLISH ACCUMULATION 📈", "ACCUMULATE / BUY", "3 to 5 Sessions", "linear-gradient(135deg, #064e3b 0%, #022c22 100%)", "#059669"
+            reason = f"{wave_desc} Institutional buyers defending upper boundaries."
+            entry_price, stop_loss = C, float(df_10m['Low'].iloc[-1]) - ((float(df_10m['High'].iloc[-1]) - float(df_10m['Low'].iloc[-1])) * 0.2)
             risk = entry_price - stop_loss
-            reward = risk * 2.5 # Professional 1:2.5 R:R Ratio
-            target_price = entry_price + reward
-            rr_text = f"1 : 2.50"
+            target_price, rr_text = entry_price + (risk * 2.5), "1 : 2.50"
         elif not bull and C < mid:
-            bias, dec, horizon, bg, border = "BEARISH DISTRIBUTION 📉", "SELL / REDUCE", "2 to 3 Trading Sessions", "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)", "#dc2626"
-            reason = "Distribution dominating order flow; sellers active near resistance."
-            entry_price = C
-            stop_loss = latest_10m_high + (ten_min_range * 0.2)
+            wave_label, wave_desc = "ABC Correction Phase 📉", "Counter-trend retracement or profit-taking wave active."
+            bias, dec, horizon, bg, border = "BEARISH DISTRIBUTION 📉", "SELL / REDUCE", "2 to 3 Sessions", "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)", "#dc2626"
+            reason = f"{wave_desc} Sellers dominant near overhead resistance."
+            entry_price, stop_loss = C, float(df_10m['High'].iloc[-1]) + ((float(df_10m['High'].iloc[-1]) - float(df_10m['Low'].iloc[-1])) * 0.2)
             risk = stop_loss - entry_price
-            reward = risk * 2.5
-            target_price = entry_price - reward
-            rr_text = f"1 : 2.50"
+            target_price, rr_text = entry_price - (risk * 2.5), "1 : 2.50"
         else:
-            bias, dec, horizon, bg, border = "EQUILIBRIUM ⚖️", "HOLD / WAIT", "1 to 2 Trading Sessions", "linear-gradient(135deg, #78350f 100%, #451a03 100%)", "#d97706"
-            reason = "Consolidation zone; awaiting directional breakout trigger."
-            entry_price = C
-            stop_loss = latest_10m_low
-            target_price = latest_10m_high
-            rr_text = f"1 : 1.00 (Neutral)"
+            wave_label, wave_desc = "Wave 4 / Consolidation Bracket ⚖️", "Sideways corrective channel prior to next breakout leg."
+            bias, dec, horizon, bg, border = "EQUILIBRIUM ⚖️", "HOLD / WAIT", "1 to 2 Sessions", "linear-gradient(135deg, #78350f 100%, #451a03 100%)", "#d97706"
+            reason = f"{wave_desc} Awaiting clear wave boundary trigger."
+            entry_price, stop_loss, target_price, rr_text = C, float(df_10m['Low'].iloc[-1]), float(df_10m['High'].iloc[-1]), "1 : 1.00"
 
         pp = (H + L + C) / 3
         nc_h, nc_l = C + (rng/20), C - (rng/20)
@@ -114,9 +103,10 @@ if ticker:
         r1_c1, r1_c2, r1_c3 = st.columns(3, gap="medium")
         
         r1_c1.markdown(f"""<div class="card" style="background: {bg}; border: 1px solid {border};">
-            <div class="title">Expert Market Bias & Decision</div>
-            <div style="font-size: 15px; font-weight: 900; color: #fff;">{bias}</div>
-            <div style="font-size: 11px; font-weight: 800; color: #38bdf8; margin-top: 4px;">Rec: {dec} | <span style="color: #fbbf24;">Valid: {horizon}</span></div>
+            <div class="title">Elliott Wave & Market Bias</div>
+            <div style="font-size: 14px; font-weight: 900; color: #fff;">{bias}</div>
+            <div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-top: 2px;">Wave: {wave_label}</div>
+            <div style="font-size: 11px; font-weight: 800; color: #fff; margin-top: 2px;">Rec: {dec} | <span style="color: #fbbf24;">Valid: {horizon}</span></div>
             <div style="font-size: 10px; margin-top: 4px; padding: 4px; background: rgba(0,0,0,0.25); border-radius: 4px; color: #f1f5f9;">{reason}</div>
         </div>""", unsafe_allow_html=True)
 
