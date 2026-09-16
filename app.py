@@ -11,30 +11,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# High-End Bloomberg/TradingView Inspired Enterprise CSS with Mobile Responsiveness
+# High-End Enterprise CSS with Optimized Spacing & Gaps
 st.markdown(
     """
     <style>
-        /* Global Reset & Enterprise Dark Theme */
-        .stApp { background-color: #090d16; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        .block-container { padding: 1rem 1rem !important; max-width: 100%; }
+        .stApp { background-color: #090d16; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .block-container { padding: 1.5rem 1.5rem !important; max-width: 100%; }
         
-        /* Enterprise Card Styling */
+        /* Enterprise Card Styling with Proper Padding */
         .enterprise-card {
             background: linear-gradient(135deg, #131b2e 0%, #0f1726 100%);
             border: 1px solid #1e293b;
             border-radius: 10px;
             padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
         }
         
-        /* Typography */
         .card-title { font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; }
         .card-main-val { font-size: 18px; font-weight: 900; margin: 4px 0; }
         .card-sub-text { font-size: 12px; font-weight: 600; line-height: 1.4; margin-top: 8px; padding: 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.2); }
         
-        /* Input & Controls Optimization for Mobile */
+        /* Input & Controls Spacing Optimization */
         div.stButton > button {
             background: linear-gradient(135deg, #1e293b 0%, #0f1726 100%);
             color: #38bdf8;
@@ -42,33 +40,31 @@ st.markdown(
             font-weight: 700;
             border-radius: 6px;
             width: 100%;
-            padding: 8px;
+            padding: 10px;
         }
         div.stButton > button:hover { background-color: #38bdf8; color: #090d16; }
         
-        /* Responsive Grid adjustments for mobile devices */
-        @media (max-width: 768px) {
-            .card-main-val { font-size: 15px; }
-            .enterprise-card { padding: 12px; }
-        }
+        .input-spacer { height: 6px; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Top Bar Input Controls
-col_ex, col_input, col_btn = st.columns([1, 2.5, 1.2])
+# Top Bar Input Controls with Clean Spacing Gaps
+col_ex, col_input, col_btn = st.columns([1, 2.5, 1.2], gap="medium")
 with col_ex:
-    ex_label = st.selectbox("Exchange", ["NSE", "BSE"])
+    st.markdown("<div class='input-spacer'></div>", unsafe_allow_html=True)
+    ex_label = st.selectbox("Market Exchange", ["NSE", "BSE"])
     ex = ".NS" if ex_label == "NSE" else ".BO"
 with col_input:
+    st.markdown("<div class='input-spacer'></div>", unsafe_allow_html=True)
     inp = st.text_input(
         "Symbol Ticker",
         value="",
         placeholder="e.g. RELIANCE, TCS, SBIN",
     ).upper()
 with col_btn:
-    st.markdown("<div style='height: 27px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 31px;'></div>", unsafe_allow_html=True)
     refresh_clicked = st.button("🔄 Execute Analysis", use_container_width=True)
 
 ticker = None
@@ -76,7 +72,8 @@ if inp:
     clean_inp = inp.replace(".NS", "").replace(".BO", "").replace(".BS", "").strip()
     ticker = f"{clean_inp}{ex}"
 
-# Header Layout
+# Header Section with Spacing Gap
+st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 head_c1, head_c2 = st.columns([2, 2])
 with head_c1:
     st.markdown("<h3 style='color: #f8fafc; margin: 0; font-size: 20px;'>Enterprise Quant Terminal</h3>", unsafe_allow_html=True)
@@ -85,7 +82,7 @@ header_stock_placeholder = head_c2.empty()
 if not ticker:
     header_stock_placeholder.markdown("<div style='text-align: right; color: #64748b; font-size: 12px; padding-top: 6px;'>📍 Status: Standby (Awaiting Ticker)</div>", unsafe_allow_html=True)
 
-st.markdown("<hr style='margin: 10px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 15px 0; border-color: #1e293b;'>", unsafe_allow_html=True)
 
 if ticker:
     @st.fragment(run_every=30)
@@ -99,7 +96,6 @@ if ticker:
                 except:
                     co_name = ticker
 
-                # Fetching multi-session telemetry to calculate precise structural boundaries
                 df_raw = stock.history(period="5d", interval="5m")
 
                 if df_raw.empty:
@@ -134,59 +130,59 @@ if ticker:
                 C = current_price
                 daily_range = H - L
                 
-                # 1. Market Bias Determination
                 mid_point = (H + L) / 2
                 last_bar_bullish = df_day['Close'].iloc[-1] >= df_day['Open'].iloc[-1]
                 
+                # Market Bias & Expert Decision Logic
                 if last_bar_bullish and C >= mid_point:
                     bias = "BULLISH ACCUMULATION 📈"
+                    expert_decision = "ACCUMULATE / BUY"
                     card_bg_color = "linear-gradient(135deg, #064e3b 0%, #022c22 100%)"
                     border_color = "#059669"
                     simple_reason = "Price is holding firm in the upper half of the session boundary. Institutional bids are absorbing supply near highs."
                 elif not last_bar_bullish and C < mid_point:
                     bias = "BEARISH DISTRIBUTION 📉"
+                    expert_decision = "SELL / REDUCE"
                     card_bg_color = "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)"
                     border_color = "#dc2626"
                     simple_reason = "Price is trading suppressed in the lower half of the session range. Aggressive selling pressure dominates order flow."
                 else:
                     bias = "EQUILIBRIUM / CHOP ⚖️"
+                    expert_decision = "HOLD / WAIT"
                     card_bg_color = "linear-gradient(135deg, #78350f 100%, #451a03 100%)"
                     border_color = "#d97706"
                     simple_reason = "Price is rotating near the midpoint balance zone. Market participants are locked in a tight consolidation bracket."
 
-                # 2. Next Candle High & Low (Volatility-Adjusted Micro Projections)
+                # Projections & Target Calculations (Dual Values)
                 micro_step = daily_range / max(len(df_day), 10) * 0.75
                 nc_high = C + micro_step
                 nc_low = C - micro_step
 
-                # 3. Next Day High and Low Targets (Two Values Each using Advanced Pivot Mathematics)
-                # Pivot Point (PP)
                 PP = (H + L + C) / 3
                 nd_h1 = (2 * PP) - L
                 nd_h2 = PP + daily_range
                 nd_l1 = (2 * PP) - H
                 nd_l2 = PP - daily_range
 
-                # 4. Next Week High and Low Targets (Two Values Each using Multi-Session ATR Range Expansion)
                 nw_h1 = C + (daily_range * 1.1)
                 nw_h2 = C + (daily_range * 2.0)
                 nw_l1 = C - (daily_range * 1.1)
                 nw_l2 = C - (daily_range * 2.0)
 
-                # 5. Session Support and Resistance (Two Values Each)
                 s1 = (2 * PP) - H
                 s2 = L - (H - PP)
                 r1 = (2 * PP) - L
                 r2 = H + (PP - L)
 
-            # --- RENDER ENTERPRISE MOBILE-FRIENDLY GRID CARDS ---
-            row1_c1, row1_c2 = st.columns(2)
+            # --- RENDER ENTERPRISE DASHBOARD GRID ---
+            row1_c1, row1_c2 = st.columns(2, gap="medium")
             
             with row1_c1:
                 st.markdown(
                     f"""<div class="enterprise-card" style="background: {card_bg_color}; border: 1px solid {border_color};">
-                        <div class="card-title">Proprietary Market Bias</div>
+                        <div class="card-title">Proprietary Market Bias & Decision</div>
                         <div class="card-main-val" style="color: #ffffff;">{bias}</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #38bdf8; margin-top: 4px;">Expert Recommendation: {expert_decision}</div>
                         <div class="card-sub-text" style="background: rgba(0,0,0,0.25); color: #f1f5f9;">{simple_reason}</div>
                     </div>""",
                     unsafe_allow_html=True
@@ -204,7 +200,7 @@ if ticker:
                     unsafe_allow_html=True
                 )
 
-            row2_c1, row2_c2, row2_c3 = st.columns(3)
+            row2_c1, row2_c2, row2_c3 = st.columns(3, gap="medium")
             
             with row2_c1:
                 st.markdown(
